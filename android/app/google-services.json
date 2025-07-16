@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "359506011726",
+    "project_id": "vendor-bnb",
+    "storage_bucket": "vendor-bnb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:359506011726:android:b15c17771b58b09291051f",
+        "android_client_info": {
+          "package_name": "com.vendor.app.vendor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC7GPux4Ja2requymmu9c2jQHm-yB6w6wM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

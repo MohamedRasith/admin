@@ -1,0 +1,44 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "vendor-bnb",
+          "appId": "1:359506011726:android:b15c17771b58b09291051f",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "vendor-bnb",
+          "appId": "1:359506011726:ios:eea7f108639b905291051f",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "vendor-bnb",
+          "appId": "1:359506011726:ios:eea7f108639b905291051f",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "vendor-bnb",
+          "configurations": {
+            "android": "1:359506011726:android:b15c17771b58b09291051f",
+            "ios": "1:359506011726:ios:eea7f108639b905291051f",
+            "macos": "1:359506011726:ios:eea7f108639b905291051f",
+            "web": "1:359506011726:web:e840a02da05580fc91051f",
+            "windows": "1:359506011726:web:32188e093e6421ea91051f"
+          }
+        }
+      }
+    }
+  },
+  "storage": {
+    "rules": "cors.json"
+  }
+}

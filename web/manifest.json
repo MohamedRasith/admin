@@ -1,0 +1,43 @@
+{
+    "name": "Vendor App",
+    "short_name": "vendor",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0175C2",
+    "theme_color": "#0175C2",
+    "description": "This is web app for add products by vendor",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+<<<<<<< HEAD
+            "src": "icons/Icon-192-maskable.png",
+=======
+            "src": "icons/icon-192-maskable.png",
+>>>>>>> cc4d1d6 (Orders page and margin page updated)
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+<<<<<<< HEAD
+            "src": "icons/Icon-512-maskable.png",
+=======
+            "src": "icons/icon-512-maskable.png",
+>>>>>>> cc4d1d6 (Orders page and margin page updated)
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
