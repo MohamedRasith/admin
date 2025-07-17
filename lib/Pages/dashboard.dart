@@ -62,6 +62,10 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+
+
+
+
   bool isLoading = false;
 
   @override
@@ -70,6 +74,208 @@ class _DashboardPageState extends State<DashboardPage> {
     super.initState();
     fetchCounts();
   }
+  Future<void> pickAndUploadExcelOrders(BuildContext context) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'],
+      withData: true,
+    );
+
+    if (result != null && result.files.single.bytes != null) {
+      final Uint8List fileBytes = result.files.single.bytes!;
+      final excel = Excel.decodeBytes(fileBytes);
+      final sheet = excel.tables[excel.tables.keys.first];
+
+      if (sheet == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid Excel file')),
+        );
+        return;
+      }
+
+      for (int rowIndex = 1; rowIndex < sheet.rows.length; rowIndex++) {
+        final row = sheet.rows[rowIndex];
+
+        /// Utility to parse Excel date string to DateTime
+        Timestamp parseExcelDate(String? dateStr) {
+          try {
+            if (dateStr == null || dateStr.trim().isEmpty) return Timestamp.now();
+
+            // Try parsing common Excel formats. Adjust format as needed.
+            DateTime dt = DateFormat("MMMM d, y 'at' h:mm:ss a").parse(dateStr);
+            return Timestamp.fromDate(dt);
+          } catch (e) {
+            return Timestamp.now(); // fallback
+          }
+        }
+
+        List<Map<String, dynamic>> parseProductsCell(String? text) {
+          if (text == null || text.trim().isEmpty) return [];
+
+          final productBlocks = text.split('\n\n');
+          return productBlocks.map((block) {
+            final lines = block.trim().split('\n');
+            final product = <String, dynamic>{};
+
+            for (var line in lines) {
+              if (line.startsWith('-')) {
+                product['title'] = line.substring(1).trim();
+              } else if (line.contains(':')) {
+                final parts = line.split(':');
+                final key = parts[0].trim().toLowerCase();
+                final value = parts.sublist(1).join(':').trim();
+
+                switch (key) {
+                  case 'image url':
+                    product['imageUrl'] = value;
+                    break;
+                  case 'asin':
+                    product['asin'] = value;
+                    break;
+                  case 'barcode':
+                    product['barcode'] = value;
+                    break;
+                  case 'requested':
+                    product['requested'] = int.tryParse(value) ?? 0;
+                    break;
+                  case 'confirmed':
+                    product['confirmed'] = int.tryParse(value) ?? 0;
+                    break;
+                  case 'unit cost':
+                    product['unitCost'] = double.tryParse(value) ?? 0.0;
+                    break;
+                  case 'total':
+                    product['total'] = double.tryParse(value) ?? 0.0;
+                    break;
+                  case 'box count':
+                    product['boxCount'] = int.tryParse(value) ?? 0;
+                    break;
+                }
+              }
+            }
+            return product;
+          }).toList();
+        }
+
+        final productsCell = row[16]?.value?.toString();
+        final products = parseProductsCell(productsCell);
+
+        final order = {
+          'amazonPONumber': row[0]?.value?.toString() ?? '',
+          'appointmentDate': parseExcelDate(row[1]?.value?.toString()),
+          'appointmentFileUrl': row[2]?.value?.toString() ?? '',
+          'appointmentId': row[3]?.value?.toString() ?? '',
+          'asn': row[4]?.value?.toString() ?? '',
+          'bnbInvoiceUrl': row[5]?.value?.toString() ?? '',
+          'bnbPONumber': row[6]?.value?.toString() ?? '',
+          'boxCount': row[7]?.value?.toString() ?? '',
+          'createdAt': parseExcelDate(row[8]?.value?.toString()),
+          'location': row[9]?.value?.toString() ?? '',
+          'productName': row[10]?.value?.toString() ?? '',
+          'productQuantity': int.tryParse(row[11]?.value?.toString() ?? '0') ?? 0,
+          'vendor': row[12]?.value?.toString() ?? '',
+          'status': row[13]?.value?.toString() ?? '',
+          'proofOfDeliveryUrl': row[14]?.value?.toString() ?? '',
+          'uploadToAmazon': row[15]?.value?.toString() ?? '',
+          'products': products,
+        };
+
+        await FirebaseFirestore.instance.collection('orders').add(order);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Excel imported successfully')),
+      );
+    }
+  }
+
+
+  Future<void> exportOrdersToExcelWeb(var orders) async {
+    final xlsio.Workbook workbook = xlsio.Workbook();
+    final xlsio.Worksheet sheet = workbook.worksheets[0];
+
+    final headers = [
+      "Amazon PO Number", "Appointment Date", "Appointment File",
+      "Appointment ID", "ASN", "BNB Invoice", "BNB PO Number", "Box Count",
+      "Created At", "Location", "Product Name", "Product Quantity", "Vendor",
+      "Status", "Proof of Delivery", "Upload to Amazon", "Products"
+    ];
+
+    // Set header row
+    for (int i = 0; i < headers.length; i++) {
+      sheet.getRangeByIndex(1, i + 1).setText(headers[i]);
+    }
+
+    for (int i = 0; i < orders.length; i++) {
+      final order = orders[i];
+
+      String formatDate(dynamic value) {
+        try {
+          DateTime date;
+          if (value is Timestamp) {
+            date = value.toDate();
+          } else if (value is DateTime) {
+            date = value;
+          } else if (value is String) {
+            date = DateTime.parse(value);
+          } else {
+            return '';
+          }
+          final formatter = DateFormat("MMMM d, y 'at' h:mm:ss a 'UTC+4'");
+          return formatter.format(date.toLocal());
+        } catch (_) {
+          return value?.toString() ?? '';
+        }
+      }
+
+      // 🧾 Format products list
+      final products = order['products'] ?? [];
+      final productLines = products.map((product) {
+        return '''- ${product['title'] ?? ''}
+  Image URL: ${product['imageUrl'] ?? ''}
+  ASIN: ${product['asin'] ?? ''}
+  Barcode: ${product['barcode'] ?? ''}
+  Requested: ${product['requested'] ?? 0}, Confirmed: ${product['confirmed'] ?? 0}
+  Unit Cost: ${product['unitCost'] ?? 0}, Total: ${product['total'] ?? 0}
+  Box Count: ${product['boxCount'] ?? 0}
+''';
+      }).join('\n\n'); // Extra line between products
+
+      final rowIndex = i + 2;
+      sheet.getRangeByIndex(rowIndex, 1).setText(order['amazonPONumber'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 2).setText(formatDate(order['appointmentDate']));
+      sheet.getRangeByIndex(rowIndex, 3).setText(order['appointmentFileUrl'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 4).setText(order['appointmentId'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 5).setText(order['asn'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 6).setText(order['bnbInvoiceUrl'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 7).setText(order['bnbPONumber'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 8).setText(order['boxCount'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 9).setText(formatDate(order['createdAt']));
+      sheet.getRangeByIndex(rowIndex, 10).setText(order['location'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 11).setText(order['productName'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 12).setNumber(order['productQuantity'] ?? 0);
+      sheet.getRangeByIndex(rowIndex, 13).setText(order['vendor'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 14).setText(order['status'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 15).setText(order['proofOfDeliveryUrl'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 16).setText(order['uploadToAmazon'] ?? '');
+
+      // ✅ Add product list to column 17
+      final productCell = sheet.getRangeByIndex(rowIndex, 17);
+      productCell.setText(productLines);
+      productCell.cellStyle.wrapText = true;
+    }
+
+    final List<int> bytes = workbook.saveAsStream();
+    workbook.dispose();
+
+    final blob = html.Blob([Uint8List.fromList(bytes)], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute("download", "OrdersExport.xlsx")
+      ..click();
+    html.Url.revokeObjectUrl(url); // Clean up
+  }
+
   Future<void> fetchCounts() async {
     final vendorsSnapshot = await FirebaseFirestore.instance.collection('vendors').get();
     final productsSnapshot = await FirebaseFirestore.instance.collection('products').get();
@@ -345,6 +551,7 @@ class _DashboardPageState extends State<DashboardPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -371,11 +578,24 @@ class _DashboardPageState extends State<DashboardPage> {
                     child: isLoading
                         ? const CircularProgressIndicator()
                         : ElevatedButton.icon(
-                            onPressed: pickAndUploadExcel,
+                      onPressed: () async {
+                        pickAndUploadExcelOrders(context);
+                           },
                             // Implement excel import logic
                             icon: const Icon(Icons.upload_file),
                             label: const Text('Import Excel File'),
                           ),
+                  ),
+                  const SizedBox(
+                    width: 15,
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(foregroundColor: Colors.white, backgroundColor: Colors.green),
+                    onPressed: () async {
+                      exportOrdersToExcelWeb(orders);
+                    },
+                    icon: const Icon(Icons.download),
+                    label: const Text("Export Orders to Excel"),
                   ),
                 ],
               ),
