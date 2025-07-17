@@ -585,6 +585,9 @@ class _DashboardPageState extends State<DashboardPage> {
                                               DataColumn(
                                                   label: Text('RSP(exc.VAT)')),
                                               DataColumn(
+                                                label: Text("VAT(5%)")
+                                              ),
+                                              DataColumn(
                                                   label: Text('Vendor Name')),
                                             ],
                                             rows:
@@ -758,6 +761,16 @@ class _DashboardPageState extends State<DashboardPage> {
                                                       },
                                                       child: Text('AED ${product['RSP'] ?? '0.00'}'),
                                                     ),
+                                                  ),
+                                                ),
+                                                DataCell(
+                                                  Builder(
+                                                    builder: (context) {
+                                                      final rawRSP = product['RSP'];
+                                                      final rsp = double.tryParse(rawRSP?.toString() ?? '0') ?? 0.0;
+                                                      final vat = rsp * 0.05;
+                                                      return Text('AED ${vat.toStringAsFixed(2)}');
+                                                    },
                                                   ),
                                                 ),
                                                 DataCell(

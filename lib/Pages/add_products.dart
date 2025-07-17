@@ -62,27 +62,41 @@ class _AddProductPageState extends State<AddProductPage> {
       setState(() {
         isImageLoading = true;
       });
-      final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        final Uint8List bytes = await pickedFile.readAsBytes();
 
-        final fileName = const Uuid().v4(); // Unique file name
-        final storageRef = FirebaseStorage.instance.ref().child("uploads/$fileName.jpg");
+      // Pick multiple images
+      final List<XFile>? pickedFiles = await _picker.pickMultiImage();
 
-        final uploadTask = await storageRef.putData(bytes);
-        final downloadUrl = await uploadTask.ref.getDownloadURL();
+      if (pickedFiles != null && pickedFiles.isNotEmpty) {
+        for (final file in pickedFiles) {
+          if (imageUrls.length >= maxImages) break; // Limit to maxImages
+          final Uint8List bytes = await file.readAsBytes();
+
+          final fileName = const Uuid().v4(); // Unique name
+          final storageRef =
+          FirebaseStorage.instance.ref().child("uploads/$fileName.jpg");
+
+          final uploadTask = await storageRef.putData(bytes);
+          final downloadUrl = await uploadTask.ref.getDownloadURL();
+
+          imageUrls.add(downloadUrl);
+        }
 
         setState(() {
-          imageUrls.add(downloadUrl);
           isImageLoading = false;
         });
-
-        debugPrint("Uploaded image URL: $downloadUrl");
+      } else {
+        setState(() {
+          isImageLoading = false;
+        });
       }
     } catch (e) {
-      debugPrint("Error picking/uploading image: $e");
+      debugPrint("Error picking/uploading images: $e");
+      setState(() {
+        isImageLoading = false;
+      });
     }
   }
+
 
   void removeImage(int index) {
     setState(() {
