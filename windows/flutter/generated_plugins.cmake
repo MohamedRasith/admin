@@ -8,11 +8,8 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_auth
   firebase_core
   firebase_storage
-<<<<<<< HEAD
-=======
   permission_handler_windows
   printing
->>>>>>> cc4d1d6 (Orders page and margin page updated)
   url_launcher_windows
 )
 

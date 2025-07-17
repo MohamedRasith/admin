@@ -5,14 +5,18 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:universal_html/html.dart' as html;
-import 'package:admin/Pages/add_orders.dart';
-import 'package:admin/Pages/add_products.dart';
 import 'package:excel/excel.dart';
-import 'package:admin/Pages/edit_products.dart';
 import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xlsio;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:vendor/Pages/add_orders.dart';
+import 'package:vendor/Pages/add_products.dart';
+import 'package:vendor/Pages/edit_products.dart';
+import 'package:vendor/Pages/margin_page.dart';
+import 'package:vendor/Pages/orders_page.dart';
+import 'package:vendor/Pages/vendor_signup_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -34,13 +38,16 @@ class _DashboardPageState extends State<DashboardPage> {
   List<String> selectedProducts = [];
   List<QueryDocumentSnapshot> filterProducts = [];
   bool showFilter = false;
+  int vendorCount = 0;
+  int productCount = 0;
 
-  final List<String> titles = ['Home', 'Orders', 'Products', 'Vendor'];
+  final List<String> titles = ['Home', 'Orders', 'Products', 'Vendor', 'Amazon Margin'];
   final List<IconData> icons = [
     Icons.home,
     Icons.shopping_cart,
     Icons.inventory,
-    Icons.store
+    Icons.store,
+    Icons.margin
   ];
 
   String getVendorName(QueryDocumentSnapshot product) {
@@ -56,6 +63,22 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   bool isLoading = false;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    fetchCounts();
+  }
+  Future<void> fetchCounts() async {
+    final vendorsSnapshot = await FirebaseFirestore.instance.collection('vendors').get();
+    final productsSnapshot = await FirebaseFirestore.instance.collection('products').get();
+
+    setState(() {
+      vendorCount = vendorsSnapshot.size;
+      productCount = productsSnapshot.size;
+    });
+  }
 
   Future<void> pickAndUploadExcel() async {
     setState(() => isLoading = true);
@@ -357,111 +380,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ],
               ),
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Card(
-                    color: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      side: BorderSide(color: Colors.grey.shade300, width: 1),
-                    ),
-                    elevation: 4,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return SingleChildScrollView(
-                          scrollDirection: Axis.vertical,
-                          child: IntrinsicWidth(
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                              child: DataTable(
-                                columnSpacing: 20,
-                                dataRowMinHeight: 50,
-                                dataRowMaxHeight: 60,
-                                columns: const [
-                                  DataColumn(label: Text('Amazon PO')),
-                                  DataColumn(label: Text('BNB PO')),
-                                  DataColumn(label: Text('Status')),
-                                  DataColumn(label: Text('Vendor')),
-                                  DataColumn(label: Text('Delivery Location')),
-                                  DataColumn(label: Text('ASN')),
-                                  DataColumn(label: Text('Appointment ID')),
-                                  DataColumn(label: Text('Appointment Date')),
-                                  DataColumn(label: Text('Product Details')), // New column
-                                ],
-                                rows: orders.map((order) {
-                                  final Timestamp? ts = order['appointmentDate'];
-                                  final String formattedDate = ts != null
-                                      ? DateFormat('yyyy-MM-dd hh:mm a').format(ts.toDate())
-                                      : '';
-                                  return DataRow(cells: [
-                                    DataCell(Text(order['amazonPONumber'] ?? '')),
-                                    DataCell(Text(order['bnbPONumber'] ?? '')),
-                                    DataCell(
-                                      Text(
-                                        order['products'][0]['confirmed'] == ''?"Pending":"Confirmed",
-                                        style: TextStyle(
-                                          color: order['products'][0]['confirmed'] == ''
-                                              ? Colors.orange
-                                              : Colors.green,
-                                        ),)
-                                    ),
-                                    DataCell(Text(order['vendor'] ?? '')),
-                                    DataCell(Text(order['location'] ?? '')),
-                                    DataCell(Text(order['asn'] ?? '')),
-                                    DataCell(Text(order['appointmentId'] ?? '')),
-                                    DataCell(Text(formattedDate)),
-                                    DataCell(
-                                      TextButton(
-                                        child: const Text("See Details"),
-                                        onPressed: () {
-                                          final List<dynamic> products = order['products'] ?? [];
-
-                                          showDialog(
-                                            context: context,
-                                            builder: (context) => AlertDialog(
-                                              title: const Text("Product Details"),
-                                              content: SizedBox(
-                                                width: double.maxFinite,
-                                                child: ListView.builder(
-                                                  shrinkWrap: true,
-                                                  itemCount: products.length,
-                                                  itemBuilder: (context, index) {
-                                                    final product = products[index];
-                                                    return ListTile(
-                                                      leading: Text("${index+1}"),
-                                                      title: Text(product['title'] ?? 'No Title', style: TextStyle(fontWeight: FontWeight.bold),),
-                                                      subtitle: Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                        children: [
-                                                          Text("ASIN: ${product['asin'] ?? ''}"),
-                                                          Text("Qty: ${product['boxCount'] ?? ''}"),
-                                                        ],
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.of(context).pop(),
-                                                  child: const Text("Close"),
-                                                )
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ]);
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
+                child: OrdersPage()
               )
             ],
           );
@@ -880,16 +799,36 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget getSelectedPageContent() {
     switch (selectedIndex) {
       case 0:
-        return const Center(
-            child:
-                Text("Welcome to Home Page", style: TextStyle(fontSize: 24)));
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Card(
+                color: Colors.white,
+                elevation: 4,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    children: [
+                      Text("Total Products: $productCount", style: const TextStyle(fontSize: 18)),
+                      const SizedBox(height: 10),
+                      Text("Total Vendors: $vendorCount", style: const TextStyle(fontSize: 18)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
       case 1:
         return getOrdersPageContent();
       case 2:
         return getProductsPageContent();
       case 3:
-        return const Center(
-            child: Text("Vendor Page", style: TextStyle(fontSize: 24)));
+        return VendorSignupPage();
+      case 4:
+        return AmazonMarginPage();
       default:
         return const Center(child: Text("Unknown Page"));
     }
@@ -945,9 +884,17 @@ class _DashboardPageState extends State<DashboardPage> {
           if (!isMobile)
             Container(
               width: 200,
-              color: Colors.blueGrey[900],
+              color: Colors.black,
               child: Column(
                 children: [
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  SvgPicture.asset(
+                    'assets/images/buybill_black.svg',
+                    width: 80,
+                    height: 80,
+                  ),
                   const SizedBox(height: 50),
                   ...List.generate(titles.length, (index) {
                     return ListTile(

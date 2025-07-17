@@ -4,10 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   file_selector_linux
-<<<<<<< HEAD
-=======
   printing
->>>>>>> cc4d1d6 (Orders page and margin page updated)
   url_launcher_linux
 )
 
