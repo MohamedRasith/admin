@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 class AddOrderPage extends StatefulWidget {
@@ -25,6 +28,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
   String? selectedLocation;
   String? imageUrl;
   bool isLoading = false;
+  String? vendorEmail;
 
   List<String> vendors = [];
   List<String> locations = ["Dubai", "Abu Dhabi", "Sharjah"];
@@ -52,6 +56,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
   void initState() {
     super.initState();
     fetchVendors();
+    // sendEmailWithBrevo(toEmail: "", toName: "", orderId: "123445");
     productNosController = TextEditingController(text: productNos.toString());
   }
   void fetchAsinSearch(String input) async {
@@ -71,6 +76,70 @@ class _AddOrderPageState extends State<AddOrderPage> {
     asinSearchResults = snapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
     showAsinOverlay();
   }
+  Future<void> sendEmailWithBrevo({
+    required String toEmail,
+    required String toName,
+    required String orderId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('https://api.brevo.com/v3/smtp/email'),
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': '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',
+      },
+      body: jsonEncode({
+        "sender":{
+          "name":"Buy and Bill",
+          "email":"mohammedrasith99@gmail.com"
+        },
+        "to":[
+          {
+            "email":"majfana@gmail.com",
+            "name":"Majeed"
+          }
+        ],
+        "subject":"Hello world",
+        "htmlContent": """
+<html>
+  <head></head>
+  <body>
+    
+    <p>Dear <strong>${toName}</strong>,</p>
+    
+    <p>You have a new <strong>Purchase Order</strong> pending in your account.</p>
+    
+    <p>
+      Please log in to the Vendor Portal at 
+      <a href="https://vendor.buynbill.com">https://vendor.buynbill.com</a> 
+      to view and process the order.
+    </p>
+    
+    <p>
+      We kindly request you to confirm the order within <strong>1 working day</strong> to avoid any delays in fulfillment.
+    </p>
+    
+    <p>
+      For any questions or assistance, feel free to reach out to us.
+    </p>
+    
+    <br>
+    
+    <p>Regards,</p>
+    <p>Procurement Team,<br>BUY AND BILL LLC</p>
+  </body>
+</html>
+"""
+
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      print("Email sent successfully");
+    } else {
+      print("Failed: ${response.statusCode} ${response.body}");
+    }
+  }
+
 
   void showAsinOverlay() {
     _asinOverlayEntry?.remove();
@@ -345,6 +414,24 @@ class _AddOrderPageState extends State<AddOrderPage> {
     }
   }
 
+  Future<String?> fetchVendorEmail(String vendorName) async {
+    final query = await FirebaseFirestore.instance
+        .collection('vendors')
+        .where('vendorName', isEqualTo: vendorName)
+        .limit(1)
+        .get();
+
+    if (query.docs.isNotEmpty) {
+      setState(() {
+        vendorEmail = query.docs.first.data()['contactPersonEmail'] as String?;
+      });
+      return query.docs.first.data()['contactPersonEmail'] as String?;
+    } else {
+      return null;
+    }
+  }
+
+
   void submitOrder() async {
     if (overlayEntry?.mounted ?? false) {
       overlayEntry?.remove();
@@ -368,6 +455,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
       'boxCount': "",
       'appointmentFileUrl': "",
       'bnbInvoiceUrl': "",
+      'invoiceNo': "",
       'productName': productSearchController.text.trim(),
       'productQuantity': productNos,
       'appointmentId': "",
@@ -452,6 +540,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
                             onChanged: (value) {
                               setState(() {
                                 selectedVendor = value;
+                                fetchVendorEmail(value ?? "");
                               });
                               updateBNBPO(); // Manually trigger in case dropdown doesn't update controller immediately
                             },

@@ -1,9 +1,9 @@
 
+import 'package:admin/Pages/edit_orders.dart';
+import 'package:admin/widget/copyable_text_cell.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-
-import 'orders_details.dart';
 
 class OrdersPage extends StatefulWidget {
   const OrdersPage({Key? key}) : super(key: key);
@@ -157,7 +157,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                 dataRowMaxHeight: 60,
                                 columns: const [
                                   DataColumn(label: Text('Amazon PO')),
-                                  DataColumn(label: Text('BNB PO')),
+                                  DataColumn(label: Text('Invoice No')),
                                   DataColumn(label: Text('Status')),
                                   DataColumn(label: Text('Vendor')),
                                   DataColumn(label: Text('Delivery Location')),
@@ -178,14 +178,38 @@ class _OrdersPageState extends State<OrdersPage> {
                                   final status = data['status'] ?? '';
 
                                   return DataRow(cells: [
-                                    DataCell(Text(data['amazonPONumber'] ?? '')),
-                                    DataCell(Text(data['bnbPONumber'] ?? '')),
-                                    DataCell(Text(status.toString())),
-                                    DataCell(Text(data['vendor'] ?? '')),
-                                    DataCell(Text(data['location'] ?? '')),
-                                    DataCell(Text(data['asn'] ?? '')),
-                                    DataCell(Text(data['appointmentId'] ?? '')),
-                                    DataCell(Text(formattedDate)),
+                                    DataCell(CopyableTextCell(
+                                      text: data['amazonPONumber'] ?? '',
+                                      tooltip: "Copy PO Number",
+                                    )),
+                                    DataCell(CopyableTextCell(
+                                      text: data['invoiceNo'] ?? '',
+                                      tooltip: "Copy Invoice No",
+                                    )),
+                                    DataCell(CopyableTextCell(
+                                      text: status.toString(),
+                                      tooltip: "Copy Status",
+                                    )),
+                                    DataCell(CopyableTextCell(
+                                      text: data['vendor'] ?? '',
+                                      tooltip: "Copy Vendor",
+                                    )),
+                                    DataCell(CopyableTextCell(
+                                      text: data['location'] ?? '',
+                                      tooltip: "Copy Location",
+                                    )),
+                                    DataCell(CopyableTextCell(
+                                      text: data['asn'] ?? '',
+                                      tooltip: "Copy ASN",
+                                    )),
+                                    DataCell(CopyableTextCell(
+                                      text: data['appointmentId'] ?? '',
+                                      tooltip: "Copy Appointment ID",
+                                    )),
+                                    DataCell(CopyableTextCell(
+                                      text: formattedDate,
+                                      tooltip: "Copy Appointment Date",
+                                    )),
                                     DataCell(
                                       TextButton(
                                         child: const Text("See Details"),
@@ -193,7 +217,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (context) => OrderDetailsPage(order: order),
+                                              builder: (context) => OrderDetailsPage(order: order,),
                                             ),
                                           );
                                         },

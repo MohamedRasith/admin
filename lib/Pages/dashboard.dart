@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:admin/Pages/vendor_details_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -11,12 +12,15 @@ import 'package:universal_html/html.dart' as html;
 import 'package:excel/excel.dart';
 import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xlsio;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:vendor/Pages/add_orders.dart';
-import 'package:vendor/Pages/add_products.dart';
-import 'package:vendor/Pages/edit_products.dart';
-import 'package:vendor/Pages/margin_page.dart';
-import 'package:vendor/Pages/orders_page.dart';
-import 'package:vendor/Pages/vendor_signup_page.dart';
+import 'package:admin/Pages/add_orders.dart';
+import 'package:admin/Pages/add_products.dart';
+import 'package:admin/Pages/edit_products.dart';
+import 'package:admin/Pages/margin_page.dart';
+import 'package:admin/Pages/orders_page.dart';
+import 'package:admin/Pages/vendor_signup_page.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../widget/copyable_text_cell.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -40,6 +44,9 @@ class _DashboardPageState extends State<DashboardPage> {
   bool showFilter = false;
   int vendorCount = 0;
   int productCount = 0;
+  TextEditingController vendorSearchController = TextEditingController();
+  String vendorSearchQuery = '';
+  List<QueryDocumentSnapshot> filteredVendors = [];
 
   final List<String> titles = ['Home', 'Orders', 'Products', 'Vendor', 'Amazon Margin'];
   final List<IconData> icons = [
@@ -49,6 +56,18 @@ class _DashboardPageState extends State<DashboardPage> {
     Icons.store,
     Icons.margin
   ];
+
+  Future<void> openUrlFallback(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Unable to open URL")),
+      );
+    }
+  }
+
 
   String getVendorName(QueryDocumentSnapshot product) {
     final data = product.data() as Map<String, dynamic>;
@@ -88,106 +107,113 @@ class _DashboardPageState extends State<DashboardPage> {
 
       if (sheet == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid Excel file')),
+          const SnackBar(content: Text('Invalid Excel file format.')),
         );
         return;
       }
 
+      final Map<String, Map<String, dynamic>> ordersMap = {};
+
       for (int rowIndex = 1; rowIndex < sheet.rows.length; rowIndex++) {
         final row = sheet.rows[rowIndex];
 
-        /// Utility to parse Excel date string to DateTime
-        Timestamp parseExcelDate(String? dateStr) {
-          try {
-            if (dateStr == null || dateStr.trim().isEmpty) return Timestamp.now();
+        final poNumber = row[0]?.value?.toString()?.trim() ?? '';
+        final asin = row[1]?.value?.toString()?.trim() ?? '';
+        final barcode = row[2]?.value?.toString()?.trim() ?? '';
+        final location = row[3]?.value?.toString()?.trim() ?? '';
+        final requestedUnits = int.tryParse(row[4]?.value?.toString() ?? '0') ?? 0;
 
-            // Try parsing common Excel formats. Adjust format as needed.
-            DateTime dt = DateFormat("MMMM d, y 'at' h:mm:ss a").parse(dateStr);
-            return Timestamp.fromDate(dt);
-          } catch (e) {
-            return Timestamp.now(); // fallback
-          }
+        if (poNumber.isEmpty || (asin.isEmpty && barcode.isEmpty) || requestedUnits <= 0) {
+          continue;
         }
 
-        List<Map<String, dynamic>> parseProductsCell(String? text) {
-          if (text == null || text.trim().isEmpty) return [];
+        QuerySnapshot productSnapshot;
 
-          final productBlocks = text.split('\n\n');
-          return productBlocks.map((block) {
-            final lines = block.trim().split('\n');
-            final product = <String, dynamic>{};
-
-            for (var line in lines) {
-              if (line.startsWith('-')) {
-                product['title'] = line.substring(1).trim();
-              } else if (line.contains(':')) {
-                final parts = line.split(':');
-                final key = parts[0].trim().toLowerCase();
-                final value = parts.sublist(1).join(':').trim();
-
-                switch (key) {
-                  case 'image url':
-                    product['imageUrl'] = value;
-                    break;
-                  case 'asin':
-                    product['asin'] = value;
-                    break;
-                  case 'barcode':
-                    product['barcode'] = value;
-                    break;
-                  case 'requested':
-                    product['requested'] = int.tryParse(value) ?? 0;
-                    break;
-                  case 'confirmed':
-                    product['confirmed'] = int.tryParse(value) ?? 0;
-                    break;
-                  case 'unit cost':
-                    product['unitCost'] = double.tryParse(value) ?? 0.0;
-                    break;
-                  case 'total':
-                    product['total'] = double.tryParse(value) ?? 0.0;
-                    break;
-                  case 'box count':
-                    product['boxCount'] = int.tryParse(value) ?? 0;
-                    break;
-                }
-              }
-            }
-            return product;
-          }).toList();
+        if (asin.isNotEmpty) {
+          productSnapshot = await FirebaseFirestore.instance
+              .collection('products')
+              .where('ASIN', isEqualTo: asin)
+              .limit(1)
+              .get();
+        } else {
+          productSnapshot = await FirebaseFirestore.instance
+              .collection('products')
+              .where('Barcode', isEqualTo: barcode)
+              .limit(1)
+              .get();
         }
 
-        final productsCell = row[16]?.value?.toString();
-        final products = parseProductsCell(productsCell);
+        if (productSnapshot.docs.isEmpty) {
+          debugPrint("⚠️ Product not found for ASIN: $asin / Barcode: $barcode");
+          continue;
+        }
 
-        final order = {
-          'amazonPONumber': row[0]?.value?.toString() ?? '',
-          'appointmentDate': parseExcelDate(row[1]?.value?.toString()),
-          'appointmentFileUrl': row[2]?.value?.toString() ?? '',
-          'appointmentId': row[3]?.value?.toString() ?? '',
-          'asn': row[4]?.value?.toString() ?? '',
-          'bnbInvoiceUrl': row[5]?.value?.toString() ?? '',
-          'bnbPONumber': row[6]?.value?.toString() ?? '',
-          'boxCount': row[7]?.value?.toString() ?? '',
-          'createdAt': parseExcelDate(row[8]?.value?.toString()),
-          'location': row[9]?.value?.toString() ?? '',
-          'productName': row[10]?.value?.toString() ?? '',
-          'productQuantity': int.tryParse(row[11]?.value?.toString() ?? '0') ?? 0,
-          'vendor': row[12]?.value?.toString() ?? '',
-          'status': row[13]?.value?.toString() ?? '',
-          'proofOfDeliveryUrl': row[14]?.value?.toString() ?? '',
-          'uploadToAmazon': row[15]?.value?.toString() ?? '',
-          'products': products,
+        final productDoc = productSnapshot.docs.first;
+        final productData = productDoc.data() as Map<String, dynamic>;
+
+        final double unitCost =
+            double.tryParse(productData['Purchase Price']?.toString() ?? '0.0') ?? 0.0;
+        final String vendor = productData['Vendor'].toString();
+        final String vendorCode = vendor.length >= 3 ? vendor.substring(0, 3) : vendor;
+
+
+        final product = {
+          'title': productData['Product Title'] ?? '',
+          'asin': productData['ASIN'] ?? '',
+          'barcode': productData['Barcode'] ?? '',
+          'imageUrl': productData['Image 1'] ?? '',
+          'requested': requestedUnits,
+          'invoiceNo': "",
+          'confirmed': 0,
+          'unitCost': unitCost,
+          'total': requestedUnits * unitCost,
+          'boxCount': requestedUnits,
         };
 
+        // 👇 Combine poNumber and vendor to make unique key
+        final String orderKey = "$poNumber|$vendor";
+
+        if (!ordersMap.containsKey(orderKey)) {
+          ordersMap[orderKey] = {
+            'amazonPONumber': poNumber,
+            'appointmentDate': null,
+            'appointmentId': '',
+            'asn': '',
+            'bnbPONumber': "$poNumber-$vendorCode",
+            'boxCount': requestedUnits,
+            'createdAt': Timestamp.now(),
+            'location': location,
+            'productName': product['title'],
+            'productQuantity': requestedUnits,
+            'vendor': vendor,
+            'status': 'Pending Order',
+            'appointmentFileUrl': '',
+            'bnbInvoiceUrl': '',
+            'proofOfDeliveryUrl': '',
+            'uploadToAmazon': '',
+            'products': [product],
+          };
+        } else {
+          ordersMap[orderKey]!['products'].add(product);
+          ordersMap[orderKey]!['boxCount'] += requestedUnits;
+          ordersMap[orderKey]!['productQuantity'] += requestedUnits;
+        }
+      }
+
+      // Save all orders to Firestore
+      for (final order in ordersMap.values) {
         await FirebaseFirestore.instance.collection('orders').add(order);
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Excel imported successfully')),
+        const SnackBar(content: Text('Orders imported successfully')),
       );
     }
   }
+
+
+
+
 
 
   Future<void> exportOrdersToExcelWeb(var orders) async {
@@ -528,22 +554,53 @@ class _DashboardPageState extends State<DashboardPage> {
 
         if (orders.isEmpty) {
           return Center(
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AddOrderPage()),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                textStyle:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              child: const Text("Add Orders"),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AddOrderPage()),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  child: const Text("Add Orders"),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    // TODO: Call your import function here
+                    pickAndUploadExcelOrders(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  child: const Text("Import Excel Orders"),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    // TODO: Call your export function here
+                    exportOrdersToExcelWeb(orders);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  child: const Text("Export Excel Orders"),
+                ),
+              ],
             ),
           );
         } else {
@@ -989,7 +1046,22 @@ class _DashboardPageState extends State<DashboardPage> {
                                                       final rawRSP = product['RSP'];
                                                       final rsp = double.tryParse(rawRSP?.toString() ?? '0') ?? 0.0;
                                                       final vat = rsp * 0.05;
-                                                      return Text('AED ${vat.toStringAsFixed(2)}');
+                                                      final total = rsp + vat;
+
+                                                      return Tooltip(
+                                                        message: 'Click to copy RSP + VAT',
+                                                        child: InkWell(
+                                                          onTap: () {
+                                                            Clipboard.setData(
+                                                              ClipboardData(text: 'AED ${total.toStringAsFixed(2)}'),
+                                                            );
+                                                            ScaffoldMessenger.of(context).showSnackBar(
+                                                              const SnackBar(content: Text('RSP + VAT copied')),
+                                                            );
+                                                          },
+                                                          child: Text('AED ${total.toStringAsFixed(2)}'),
+                                                        ),
+                                                      );
                                                     },
                                                   ),
                                                 ),
@@ -1029,6 +1101,213 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  Widget getVendorsPageContent() {
+    return Column(
+      children: [
+        // Top Action Bar
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const VendorSignupPage()),
+                    );
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text("Add Vendor"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Search Field
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Expanded(
+              child: TextField(
+                controller: vendorSearchController,
+                decoration: InputDecoration(
+                  labelText: 'Search Vendors (min 3 chars)',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    vendorSearchQuery = value.length >= 3 ? value.toLowerCase() : '';
+                  });
+                },
+              ),
+            ),
+          ]),
+        ),
+
+        const SizedBox(height: 8),
+
+        // Vendor Data Table
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('vendors').orderBy('createdAt', descending: true).snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              }
+
+              final vendors = snapshot.data?.docs ?? [];
+
+              final filtered = vendors.where((doc) {
+                final name = (doc['vendorName'] ?? '').toString().toLowerCase();
+                final email = (doc['contactPersonEmail'] ?? '').toString().toLowerCase();
+                return vendorSearchQuery.isEmpty || name.contains(vendorSearchQuery) || email.contains(vendorSearchQuery);
+              }).toList();
+
+              filteredVendors = filtered;
+
+              if (filtered.isEmpty) {
+                return const Center(child: Text("No Vendors Found"));
+              }
+
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Card(
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  elevation: 4,
+                  child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          child: IntrinsicWidth(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                              child: DataTable(
+                                columnSpacing: 20,
+                                dataRowMinHeight: 50,
+                                dataRowMaxHeight: 100,
+                                columns: const [
+                                  DataColumn(label: Text("Vendor Name")),
+                                  DataColumn(label: Text("Company")),
+                                  DataColumn(label: Text("Contact Name")),
+                                  DataColumn(label: Text("Contact Email")),
+                                  DataColumn(label: Text("Trade License")),
+                                  DataColumn(label: Text("VAT Certificate")),
+                                  DataColumn(label: Text("Bank Letter")),
+                                ],
+                                rows: filtered.map((doc) {
+                                  return DataRow(cells: [
+                                    DataCell(
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: MouseRegion(
+                                              cursor: SystemMouseCursors.click,
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(builder: (context) => VendorDetailPage(vendor: doc)),
+                                                  );
+                                                },
+                                                child: Text(
+                                                  doc['vendorName'] ?? '',
+                                                  style: const TextStyle(
+                                                    color: Colors.blue,
+                                                    decoration: TextDecoration.underline,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Tooltip(
+                                            message: 'Copy Vendor Name',
+                                            child: InkWell(
+                                              onTap: () {
+                                                Clipboard.setData(ClipboardData(text: doc['vendorName'] ?? ''));
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Vendor Name copied')),
+                                                );
+                                              },
+                                              child: const Icon(Icons.copy, size: 16, color: Colors.grey),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    DataCell(CopyableTextCell(
+                                      text: doc['companyName'] ?? '',
+                                      tooltip: 'Company Name',
+                                    )),
+
+                                    DataCell(CopyableTextCell(
+                                      text: doc['contactPersonName'] ?? '',
+                                      tooltip: 'Contact Name',
+                                    )),
+
+                                    DataCell(CopyableTextCell(
+                                      text: doc['contactPersonEmail'] ?? '',
+                                      tooltip: 'Email',
+                                    )),
+
+                                    DataCell(
+                                      doc['tradeLicenseUrl'] != null
+                                          ? IconButton(
+                                        icon: const Icon(Icons.picture_as_pdf, size: 20),
+                                        onPressed: () => openUrlFallback(doc['tradeLicenseUrl']),
+                                      )
+                                          : const Text("No File"),
+                                    ),
+                                    DataCell(
+                                      doc['vatCertificateUrl'] != null
+                                          ? IconButton(
+                                        icon: const Icon(Icons.picture_as_pdf, size: 20),
+                                        onPressed: () => openUrlFallback(doc['vatCertificateUrl']),
+                                      )
+                                          : const Text("No File"),
+                                    ),
+                                    DataCell(
+                                      doc['bankLetterUrl'] != null
+                                          ? IconButton(
+                                        icon: const Icon(Icons.picture_as_pdf, size: 20),
+                                        onPressed: () => openUrlFallback(doc['bankLetterUrl']),
+                                      )
+                                          : const Text("No File"),
+                                    ),
+                                  ]);
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+
   Widget getSelectedPageContent() {
     switch (selectedIndex) {
       case 0:
@@ -1059,7 +1338,7 @@ class _DashboardPageState extends State<DashboardPage> {
       case 2:
         return getProductsPageContent();
       case 3:
-        return VendorSignupPage();
+        return getVendorsPageContent();
       case 4:
         return AmazonMarginPage();
       default:

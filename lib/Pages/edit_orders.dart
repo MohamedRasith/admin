@@ -34,6 +34,9 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   PlatformFile? appointmentFile;
   PlatformFile? bnbInvoiceFile;
 
+  DateTime? appointmentDate;
+  String? invoiceNo; // 🔸 Add this in your State class
+
   void openPdfInNewTab(String url) {
     html.window.open(url, '_blank');
   }
@@ -48,7 +51,12 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     for (int i = 0; i < products.length; i++) {
       _layerLinks[i] = LayerLink();
     }
+    final data = widget.order.data() as Map<String, dynamic>;
+    appointmentDate = data['appointmentDate'] != null
+        ? (data['appointmentDate'] as Timestamp).toDate()
+        : null;
 
+    invoiceNo = widget.order['invoiceNo']; // 🔸 Initialize from Firestore
 
     boxCountControllers = List.generate(
       products.length,
@@ -69,6 +77,22 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         allProductTitles = titles;
       });
     });
+
+    fetchVendorDetails(widget.order['vendor']);
+  }
+
+  Future<Map<String, dynamic>> fetchVendorDetails(String vendorName) async {
+    final query = await FirebaseFirestore.instance
+        .collection('vendors')
+        .where('vendorName', isEqualTo: vendorName)
+        .limit(1)
+        .get();
+
+    if (query.docs.isNotEmpty) {
+      return query.docs.first.data();
+    } else {
+      return {}; // return empty if not found
+    }
   }
 
   Future<void> uploadToAmazon() async {
@@ -128,7 +152,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     final logoBytes = await rootBundle.load('assets/images/buybill.png').then((value) => value.buffer.asUint8List());
     final logoImage = pw.MemoryImage(logoBytes);
 
-    final tableHeaders = ['', 'Product', 'Cost', 'Quantity\nRequested', 'Quantity\nConfirmed', 'Total'];
+    final tableHeaders = ['', 'Product', 'Cost', 'QTY', 'Total'];
 
     final todayDate = DateFormat('dd MMM, yyyy').format(DateTime.now());
 
@@ -142,9 +166,21 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     final double vat = subtotal * 0.05;
     final double grandTotal = subtotal + vat;
 
+    final vendorName = widget.order['vendor'];
+    final vendorData = await fetchVendorDetails(vendorName);
+
+    final companyName = vendorData['companyName'] ?? 'Buy and bill LLC';
+    final address1 = vendorData['addressLine1'] ?? 'Sharjah Media City';
+    final address2 = vendorData['addressLine2'] ?? 'Sharjah UAE';
+    final phone = vendorData['contactPersonNumber'] ?? '+971 52 603 3484';
+
 
     pdf.addPage(
       pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(10), // Reduce margin (default is 40)
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        mainAxisAlignment: pw.MainAxisAlignment.start,
         build: (context) => [
           pw.Center(
             child:pw.Row(
@@ -192,11 +228,10 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text('To:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                  pw.Text('${widget.order['vendor'] ?? 'Not set'},'),
-                  pw.Text('Buy and bill LLC,'),
-                  pw.Text('Sharjah Media City,'),
-                  pw.Text('Sharjah UAE.'),
-                  pw.Text('+971 52 603 3484'),
+                  pw.Text('$vendorName,'),
+                  pw.Text('$address1,'),
+                  pw.Text('$address2.'),
+                  pw.Text(phone),
                 ],
               ),
               pw.Column(
@@ -249,10 +284,9 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             columnWidths: {
               0: const pw.FixedColumnWidth(30), // Serial No. column
               1: const pw.FixedColumnWidth(180), // Product column
-              2: const pw.FixedColumnWidth(50),  // Cost column
-              3: const pw.FixedColumnWidth(100),  // Quantity Requested column
-              4: const pw.FixedColumnWidth(100),  // Quantity Confirmed column
-              5: const pw.FixedColumnWidth(80),  // Total column
+              2: const pw.FixedColumnWidth(30),  // Cost column
+              3: const pw.FixedColumnWidth(30),  // Quantity Requested column
+              4: const pw.FixedColumnWidth(50),  // Total column
             },
             border: pw.TableBorder.all(color: PdfColors.grey), // Body border
             children: [
@@ -286,7 +320,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                 final p = entry.value;
 
                 final title = p['title'] as String;
-                final truncatedTitle = title.length > 20 ? '${title.substring(0, 20)}...' : title;
+                final truncatedTitle = title.length > 100 ? '${title.substring(0, 100)}...' : title;
 
                 final description = '$truncatedTitle\nBARCODE: ${p['barcode']}\nASIN: ${p['asin']}';
 
@@ -311,11 +345,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     ),
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(8),
-                      child: pw.Text(p['confirmed'].toString()),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(8),
-                      child: pw.Text(p['total'].round().toString()),
+                      child: pw.Text(p['total'].toString()),
                     ),
                   ],
                 );
@@ -651,9 +681,6 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   @override
   Widget build(BuildContext context) {
     final hasConfirmed = products.any((p) => p['confirmed'] != null);
-    final appointmentDate = widget.order['appointmentDate'] != null
-        ? DateFormat("dd MMM hh:mm a").format((widget.order['appointmentDate'] as Timestamp).toDate())
-        : 'Not set';
 
     final createdDate = widget.order['createdAt'] != null
         ? DateFormat("dd MMM hh:mm a").format((widget.order['createdAt'] as Timestamp).toDate())
@@ -666,389 +693,592 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         title: const Text("Order Details", style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text("PO: ${widget.order['amazonPONumber']}", style: const TextStyle(fontSize: 20),),
-          ),
-          Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Table(
-                      border: TableBorder.all(color: Colors.grey), // <-- Add this line
-                      columnWidths: const {
-                        0: IntrinsicColumnWidth(),
-                        1: IntrinsicColumnWidth(),
-                      },
-                      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                      children: [
-                        TableRow(
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text("ASN:", style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(widget.order['asn'] ?? ''),
-                            ),
-                          ],
-                        ),
-                        TableRow(
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text("BNB PO Number:", style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(widget.order['bnbPONumber'] ?? ''),
-                            ),
-                          ],
-                        ),
-                        TableRow(
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text("Appointment ID:", style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(widget.order['appointmentId'] ?? ''),
-                            ),
-                          ],
-                        ),
-                        TableRow(
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text("Appointment Date:", style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(appointmentDate),
-                            ),
-                          ],
-                        ),
-                        TableRow(
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text("Location:", style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(widget.order['location'] ?? ''),
-                            ),
-                          ],
-                        ),
-                        TableRow(
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text("Order created on:", style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(createdDate),
-                            ),
-                          ],
-                        ),
-                        TableRow(
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text("Vendor:", style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(widget.order['vendor'] ?? ''),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(
-                width: 200,
-                child: Column(
-                  children: [
-                    // Appointment File Box
-                    GestureDetector(
-                      onTap: () {
-                        if (appointmentFile != null) {
-                          pickFile('appointment');
-                        } else if (widget.order['appointmentFileUrl'] != "") {
-                          openPdfInNewTab(widget.order['appointmentFileUrl']);
-                        } else {
-                          pickFile('appointment');
-                        }
-                      },
-                      child: Container(
-                        height: 100,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: appointmentFile != null
-                              ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.insert_drive_file, size: 28, color: Colors.green),
-                              const SizedBox(height: 4),
-                              Text(appointmentFile!.name, overflow: TextOverflow.ellipsis),
-                            ],
-                          )
-                              : widget.order['appointmentFileUrl'] != ""
-                              ? const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.picture_as_pdf, size: 28, color: Colors.red),
-                              SizedBox(height: 4),
-                              Text("View PDF of Appointment Letter", style: TextStyle(fontSize: 12)),
-                            ],
-                          )
-                              : const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.add, size: 28, color: Colors.blue),
-                              SizedBox(height: 4),
-                              Text('Appointment Letter'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(
-                      height: 20,
-                    ),
-                    // BNB Invoice Box
-                    GestureDetector(
-                      onTap: () {
-                        if (bnbInvoiceFile != null) {
-                          pickFile('bnb');
-                        } else if (widget.order['bnbInvoiceUrl'] != "") {
-                          html.window.open(widget.order['bnbInvoiceUrl'], '_blank');
-                        } else {
-                          pickFile('bnb');
-                        }
-                      },
-                      child: Container(
-                        height: 100,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: bnbInvoiceFile != null
-                              ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.insert_drive_file, size: 28, color: Colors.green),
-                              const SizedBox(height: 4),
-                              Text(
-                                bnbInvoiceFile!.name,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          )
-                              : widget.order['bnbInvoiceUrl'] != ""
-                              ? const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.picture_as_pdf, size: 28, color: Colors.red),
-                              SizedBox(height: 4),
-                              Text(
-                                "View PDF of BNB Invoice",
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          )
-                              : const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.add, size: 28, color: Colors.blue),
-                              SizedBox(height: 4),
-                              Text('BNB Invoice'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => exportOrderToExcel(products, widget.order.data()),
-                  icon: const Icon(Icons.file_copy, color: Colors.white,),
-                  label: const Text("Export Excel", style: TextStyle(color: Colors.white),),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: () => generatePdf(products, widget.order.data()),
-                  icon: const Icon(Icons.picture_as_pdf, color: Colors.white,),
-                  label: const Text("Export PDF", style: TextStyle(color: Colors.white),),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                ),
-                const SizedBox(width: 12),
-                widget.order['uploadToAmazon'] != ""?
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: InkWell(
-                    onTap: () async {
-                      final url = widget.order['uploadToAmazon'];
-                      html.window.open(url, '_blank');
-                    },
-                    child: const Text(
-                      "View Proof of Delivery",
-                      style: TextStyle(
-                        color: Colors.blue,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                  ),
-                )
-                    :ElevatedButton.icon(
-                  onPressed: uploadToAmazon,
-                  icon: const Icon(Icons.upload_file, color: Colors.white),
-                  label: const Text("Upload to Amazon", style: TextStyle(color: Colors.white)),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                ),
-              ],
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text("PO: ${widget.order['amazonPONumber']}", style: const TextStyle(fontSize: 20),),
             ),
-          ),
-          const SizedBox(height: 12),
-
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Table(
-                border: TableBorder.all(color: Colors.grey),
-                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                columnWidths: const {
-                  0: FixedColumnWidth(80), // Image
-                  1: FixedColumnWidth(200), // Title
-                  2: IntrinsicColumnWidth(), // ASIN
-                  3: IntrinsicColumnWidth(), // Barcode
-                  4: IntrinsicColumnWidth(), // Qty/Box
-                  5: IntrinsicColumnWidth(), // Order ID
-                  6: IntrinsicColumnWidth(), // Vendor
-                  7: IntrinsicColumnWidth(),
-                },
-                children: [
-                  // Header row
-                  const TableRow(
-                    decoration: BoxDecoration(color: Color(0xFFE0E0E0)),
+            Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text('', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text('Title', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text('ASIN', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text('Barcode', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text('Requested quantity', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text('Confirmed quantity', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text('Unit Cost', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text('Total Cost', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Table(
+                        border: TableBorder.all(color: Colors.grey), // <-- Add this line
+                        columnWidths: const {
+                          0: IntrinsicColumnWidth(),
+                          1: IntrinsicColumnWidth(),
+                        },
+                        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                        children: [
+                          // ASN
+                          TableRow(
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("ASN:", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: widget.order['asn'] != null && widget.order['asn'].toString().isNotEmpty
+                                    ? Text(widget.order['asn'])
+                                    : ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  ),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text("Add ASN"),
+                                  onPressed: () async {
+                                    final asn = await showDialog<String>(
+                                      context: context,
+                                      builder: (context) {
+                                        final controller = TextEditingController();
+                                        return AlertDialog(
+                                          title: const Text("Enter ASN"),
+                                          content: TextField(controller: controller),
+                                          actions: [
+                                            TextButton(
+                                              child: const Text("Cancel"),
+                                              onPressed: () => Navigator.pop(context),
+                                            ),
+                                            ElevatedButton(
+                                              child: const Text("Save"),
+                                              onPressed: () => Navigator.pop(context, controller.text.trim()),
+                                            )
+                                          ],
+                                        );
+                                      },
+                                    );
+
+                                    if (asn != null && asn.isNotEmpty) {
+                                      await FirebaseFirestore.instance.collection('orders').doc(widget.order.id).update({'asn': asn});
+                                      setState(() {}); // Refresh UI
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          TableRow(
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("BNB PO Number:", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(widget.order['bnbPONumber'] ?? ''),
+                              ),
+                            ],
+                          ),
+                          // Appointment ID
+                          TableRow(
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("Appointment ID:", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: widget.order['appointmentId'] != null && widget.order['appointmentId'].toString().isNotEmpty
+                                    ? Text(widget.order['appointmentId'])
+                                    : ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  ),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text("Add ID"),
+                                  onPressed: () async {
+                                    final id = await showDialog<String>(
+                                      context: context,
+                                      builder: (context) {
+                                        final controller = TextEditingController();
+                                        return AlertDialog(
+                                          title: const Text("Enter Appointment ID"),
+                                          content: TextField(controller: controller),
+                                          actions: [
+                                            TextButton(
+                                              child: const Text("Cancel"),
+                                              onPressed: () => Navigator.pop(context),
+                                            ),
+                                            ElevatedButton(
+                                              child: const Text("Save"),
+                                              onPressed: () => Navigator.pop(context, controller.text.trim()),
+                                            )
+                                          ],
+                                        );
+                                      },
+                                    );
+
+                                    if (id != null && id.isNotEmpty) {
+                                      await FirebaseFirestore.instance.collection('orders').doc(widget.order.id).update({'appointmentId': id});
+                                      setState(() {
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+
+// Appointment Date
+                          TableRow(
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("Appointment Date:", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: appointmentDate != null
+                                    ? Text(DateFormat("dd MMM yyyy hh:mm a").format(appointmentDate!))
+                                    : ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  ),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text("Add Date"),
+                                  onPressed: () async {
+                                    final pickedDate = await showDatePicker(
+                                      context: context,
+                                      initialDate: DateTime.now(),
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime(2100),
+                                    );
+
+                                    if (pickedDate != null) {
+                                      final pickedTime = await showTimePicker(
+                                        context: context,
+                                        initialTime: TimeOfDay.now(),
+                                      );
+
+                                      if (pickedTime != null) {
+                                        final fullDate = DateTime(
+                                          pickedDate.year,
+                                          pickedDate.month,
+                                          pickedDate.day,
+                                          pickedTime.hour,
+                                          pickedTime.minute,
+                                        );
+
+                                        await FirebaseFirestore.instance
+                                            .collection('orders')
+                                            .doc(widget.order.id)
+                                            .update({'appointmentDate': Timestamp.fromDate(fullDate)});
+
+                                        setState(() {
+                                          appointmentDate = fullDate;
+                                        });
+                                      }
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          TableRow(
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("Location:", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(widget.order['location'] ?? ''),
+                              ),
+                            ],
+                          ),
+                          TableRow(
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("Order created on:", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(createdDate),
+                              ),
+                            ],
+                          ),
+                          TableRow(
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("Vendor:", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(widget.order['vendor'] ?? ''),
+                              ),
+                            ],
+                          ),
+                          TableRow(
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("No of Boxes:", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(widget.order['boxCount'].toString() ?? ''),
+                              ),
+                            ],
+                          ),
+                          TableRow(
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("Invoice No:", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        invoiceNo ?? '', // ✅ Use local state variable
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (invoiceNo == null || invoiceNo!.isEmpty)
+                                      Center(
+                                        child: IconButton(
+                                          icon: const Icon(Icons.add, color: Colors.green),
+                                          onPressed: () async {
+                                            final invoiceController = TextEditingController();
+
+                                            await showDialog(
+                                              context: context,
+                                              builder: (context) {
+                                                return AlertDialog(
+                                                  title: const Text('Enter Invoice Number'),
+                                                  content: TextField(
+                                                    controller: invoiceController,
+                                                    decoration: const InputDecoration(hintText: 'Invoice No'),
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.of(context).pop(),
+                                                      child: const Text('Cancel'),
+                                                    ),
+                                                    ElevatedButton(
+                                                      onPressed: () async {
+                                                        final newInvoice = invoiceController.text.trim();
+                                                        if (newInvoice.isNotEmpty) {
+                                                          await FirebaseFirestore.instance
+                                                              .collection('orders')
+                                                              .doc(widget.order.id)
+                                                              .update({'invoiceNo': newInvoice});
+                                                          Navigator.of(context).pop();
+                                                          setState(() {
+                                                            invoiceNo = newInvoice; // ✅ Update state so UI reflects new value
+                                                          });
+                                                        }
+                                                      },
+                                                      child: const Text('Save'),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                        ],
                       ),
                     ],
                   ),
-                  // Data rows
-                  for (final product in products)
-                    TableRow(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Image.network(
-                            product['imageUrl'],
-                            width: 40,
-                            height: 40,
-                            fit: BoxFit.cover,
+                ),
+                SizedBox(
+                  width: 200,
+                  child: Column(
+                    children: [
+                      // Appointment File Box
+                      GestureDetector(
+                        onTap: () {
+                          if (appointmentFile != null) {
+                            pickFile('appointment');
+                          } else if (widget.order['appointmentFileUrl'] != "") {
+                            openPdfInNewTab(widget.order['appointmentFileUrl']);
+                          } else {
+                            pickFile('appointment');
+                          }
+                        },
+                        child: Container(
+                          height: 100,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: appointmentFile != null
+                                ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.insert_drive_file, size: 28, color: Colors.green),
+                                const SizedBox(height: 4),
+                                Text(appointmentFile!.name, overflow: TextOverflow.ellipsis),
+                              ],
+                            )
+                                : widget.order['appointmentFileUrl'] != ""
+                                ? const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.picture_as_pdf, size: 28, color: Colors.red),
+                                SizedBox(height: 4),
+                                Text("View PDF of Appointment Letter", style: TextStyle(fontSize: 12)),
+                              ],
+                            )
+                                : const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add, size: 28, color: Colors.blue),
+                                SizedBox(height: 4),
+                                Text('Appointment Letter'),
+                              ],
+                            ),
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(
-                            product['title'] ?? '',
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
+                      ),
+
+                      const SizedBox(
+                        height: 20,
+                      ),
+                      // BNB Invoice Box
+                      GestureDetector(
+                        onTap: () {
+                          if (bnbInvoiceFile != null) {
+                            pickFile('bnb');
+                          } else if (widget.order['bnbInvoiceUrl'] != "") {
+                            html.window.open(widget.order['bnbInvoiceUrl'], '_blank');
+                          } else {
+                            pickFile('bnb');
+                          }
+                        },
+                        child: Container(
+                          height: 100,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: bnbInvoiceFile != null
+                                ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.insert_drive_file, size: 28, color: Colors.green),
+                                const SizedBox(height: 4),
+                                Text(
+                                  bnbInvoiceFile!.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            )
+                                : widget.order['bnbInvoiceUrl'] != ""
+                                ? const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.picture_as_pdf, size: 28, color: Colors.red),
+                                SizedBox(height: 4),
+                                Text(
+                                  "View PDF of BNB Invoice",
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            )
+                                : const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add, size: 28, color: Colors.blue),
+                                SizedBox(height: 4),
+                                Text('BNB Invoice'),
+                              ],
+                            ),
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(product['asin'] ?? ''),
+                      ),
+                    ],
+                  ),
+                )
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => exportOrderToExcel(products, widget.order.data()),
+                    icon: const Icon(Icons.file_copy, color: Colors.white,),
+                    label: const Text("Export Excel", style: TextStyle(color: Colors.white),),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: () => generatePdf(products, widget.order.data()),
+                    icon: const Icon(Icons.picture_as_pdf, color: Colors.white,),
+                    label: const Text("Export PDF", style: TextStyle(color: Colors.white),),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  ),
+                  const SizedBox(width: 12),
+                  widget.order['uploadToAmazon'] != ""?
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: InkWell(
+                      onTap: () async {
+                        final url = widget.order['uploadToAmazon'];
+                        html.window.open(url, '_blank');
+                      },
+                      child: const Text(
+                        "View Proof of Delivery",
+                        style: TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
                         ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(product['barcode'] ?? ''),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(
-                             '${product['boxCount']}',
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text((product['confirmed'] ?? 0).toString()),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text((product['unitCost'] ?? 0.0).toStringAsFixed(2)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text((product['total'] ?? 0.0).toStringAsFixed(2)),
-                        ),
-                      ],
+                      ),
                     ),
+                  )
+                      :ElevatedButton.icon(
+                    onPressed: uploadToAmazon,
+                    icon: const Icon(Icons.upload_file, color: Colors.white),
+                    label: const Text("Upload to Amazon", style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                  ),
                 ],
               ),
             ),
-          )
+            const SizedBox(height: 12),
 
-        ],
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Table(
+                  border: TableBorder.all(color: Colors.grey),
+                  defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                  columnWidths: const {
+                    0: FixedColumnWidth(80), // Image
+                    1: FixedColumnWidth(200), // Title
+                    2: IntrinsicColumnWidth(), // ASIN
+                    3: IntrinsicColumnWidth(), // Barcode
+                    4: IntrinsicColumnWidth(), // Qty/Box
+                    5: IntrinsicColumnWidth(), // Order ID
+                    6: IntrinsicColumnWidth(), // Vendor
+                    7: IntrinsicColumnWidth(),
+                  },
+                  children: [
+                    // Header row
+                    const TableRow(
+                      decoration: BoxDecoration(color: Color(0xFFE0E0E0)),
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text('', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text('Title', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text('ASIN', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text('Barcode', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text('Requested quantity', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text('Confirmed quantity', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text('Unit Cost', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text('Total Cost', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                    // Data rows
+                    for (final product in products)
+                      TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Image.network(
+                              product['imageUrl'],
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              product['title'] ?? '',
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(product['asin'] ?? ''),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(product['barcode'] ?? ''),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                               '${product['boxCount']}',
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text((product['confirmed'] ?? 0).toString()),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text((product['unitCost'] ?? 0.0).toStringAsFixed(2)),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text((product['total'] ?? 0.0).toStringAsFixed(2)),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            )
+
+          ],
+        ),
       ),
     );
   }

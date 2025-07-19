@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
-import 'package:vendor/widget/category_drop_down.dart';
-import 'package:vendor/widget/sub_category_drop_down.dart';
+import 'package:admin/widget/category_drop_down.dart';
+import 'package:admin/widget/sub_category_drop_down.dart';
 
 class AddProductPage extends StatefulWidget {
   const AddProductPage({super.key});

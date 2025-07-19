@@ -1,5 +1,5 @@
-name: vendor
-description: "This is web app for add products by vendor"
+name: admin
+description: "This is web app for products, orders and vendors managed by admin. It is built using Flutter and Firebase."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
