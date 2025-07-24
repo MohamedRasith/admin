@@ -107,44 +107,15 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     }
   }
 
-  Future<void> uploadToAmazon() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'doc', 'docx'],
-    );
-
-    if (result == null || result.files.isEmpty) {
-      // User canceled or no file selected
-      return;
-    }
-
-    final file = result.files.first;
-    final fileBytes = file.bytes;
-    final fileName = file.name;
-
-    if (fileBytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to read file.")),
-      );
-      return;
-    }
+  Future<void> setCompleted() async {
 
     try {
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('upload_to_amazon_files/${widget.order.id}/$fileName');
-
-      // Upload file bytes
-      final uploadTask = await storageRef.putData(fileBytes);
-
-      // Get download URL
-      final downloadUrl = await storageRef.getDownloadURL();
 
       // Save download URL to Firestore order document
       await FirebaseFirestore.instance
           .collection('orders')
           .doc(widget.order.id)
-          .update({'uploadToAmazon': downloadUrl, 'status': 'Completed'});
+          .update({'status': 'Completed'});
 
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1151,28 +1122,26 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                   ),
                   const SizedBox(width: 12),
-                  widget.order['uploadToAmazon'] != ""?
+                  widget.order['status'] == "Completed"?
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0),
                     child: InkWell(
                       onTap: () async {
-                        final url = widget.order['uploadToAmazon'];
-                        html.window.open(url, '_blank');
+
                       },
                       child: const Text(
-                        "View Proof of Delivery",
+                        "Order Completed Successfully !",
                         style: TextStyle(
-                          color: Colors.blue,
-                          decoration: TextDecoration.underline,
+                          color: Colors.green,
                         ),
                       ),
                     ),
                   )
                       :ElevatedButton.icon(
-                    onPressed: uploadToAmazon,
+                    onPressed: setCompleted,
                     icon: const Icon(Icons.upload_file, color: Colors.white),
-                    label: const Text("Upload to Amazon", style: TextStyle(color: Colors.white)),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                    label: const Text("Click here to Complete the Order", style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                   ),
                 ],
               ),

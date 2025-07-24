@@ -84,12 +84,12 @@ class _AddOrderPageState extends State<AddOrderPage> {
       Uri.parse('https://api.brevo.com/v3/smtp/email'),
       headers: {
         'Content-Type': 'application/json',
-        'api-key': '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',
+        'api-key': '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',
       },
       body: jsonEncode({
         "sender":{
           "name":"Buy and Bill",
-          "email":"mohammedrasith99@gmail.com"
+          "email":"ecommerce@buynbill.com"
         },
         "to":[
           {

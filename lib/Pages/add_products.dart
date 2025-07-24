@@ -55,7 +55,7 @@ class _AddProductPageState extends State<AddProductPage> {
 
   List<String> uploadedImages = [];
   List<String> imageUrls = [];
-  final int maxImages = 5;
+  final int maxImages = 12;
   final ImagePicker _picker = ImagePicker();
   Future<void> pickAndUploadImage() async {
     try {
