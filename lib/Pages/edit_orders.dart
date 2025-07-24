@@ -52,9 +52,21 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       _layerLinks[i] = LayerLink();
     }
     final data = widget.order.data() as Map<String, dynamic>;
-    appointmentDate = data['appointmentDate'] != null
-        ? (data['appointmentDate'] as Timestamp).toDate()
-        : null;
+    DateTime? appointmentDate;
+
+    final rawDate = data['appointmentDate'];
+
+    if (rawDate is Timestamp) {
+      appointmentDate = rawDate.toDate();
+    } else if (rawDate is String) {
+      appointmentDate = DateTime.tryParse(rawDate);
+    } else {
+      appointmentDate = null;
+    }
+
+    final formattedDate = appointmentDate != null
+        ? DateFormat('yyyy-MM-dd hh:mm a').format(appointmentDate)
+        : '';
 
     invoiceNo = widget.order['invoiceNo']; // 🔸 Initialize from Firestore
 

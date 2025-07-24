@@ -24,6 +24,36 @@ class _OrdersPageState extends State<OrdersPage> {
   String selectedCategory = 'Pending Order';
   String searchQuery = '';
   bool isLoading = false;
+  Map<String, int> categoryCounts = {};
+  bool isCountLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchCategoryCounts();
+  }
+
+  Future<void> fetchCategoryCounts() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('orders')
+        .get();
+
+    final Map<String, int> counts = {
+      for (var category in categories) category: 0,
+    };
+
+    for (var doc in snapshot.docs) {
+      final status = (doc['status'] ?? '').toString();
+      if (counts.containsKey(status)) {
+        counts[status] = counts[status]! + 1;
+      }
+    }
+
+    setState(() {
+      categoryCounts = counts;
+      isCountLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +69,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: ChoiceChip(
                   label: Text(
-                    category,
+                    '$category (${categoryCounts[category] ?? 0})',
                     style: TextStyle(
                       color: isSelected ? Colors.white : Colors.black,
                       fontWeight: FontWeight.bold,
@@ -169,9 +199,17 @@ class _OrdersPageState extends State<OrdersPage> {
                                 rows: orders.map((order) {
                                   final data = order.data() as Map<String, dynamic>;
 
-                                  final Timestamp? ts = data['appointmentDate'];
-                                  final String formattedDate = ts != null
-                                      ? DateFormat('yyyy-MM-dd hh:mm a').format(ts.toDate())
+                                  final dynamic rawDate = data['appointmentDate'];
+                                  DateTime? dateTime;
+
+                                  if (rawDate is Timestamp) {
+                                    dateTime = rawDate.toDate();
+                                  } else if (rawDate is String) {
+                                    dateTime = DateTime.tryParse(rawDate);
+                                  }
+
+                                  final String formattedDate = dateTime != null
+                                      ? DateFormat('yyyy-MM-dd hh:mm a').format(dateTime)
                                       : '';
 
                                   // You can customize this status display if you want

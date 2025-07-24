@@ -44,6 +44,9 @@ class _VendorSignupPageState extends State<VendorSignupPage> {
   PlatformFile? tradeLicenseFile;
   PlatformFile? vatCertificateFile;
   PlatformFile? bankLetterFile;
+  PlatformFile? authorizationLetterFile;
+  PlatformFile? agreementFile;
+
 
   Future<String?> uploadFileToStorage(PlatformFile? file, String folder) async {
     if (file == null) return null;
@@ -75,10 +78,17 @@ class _VendorSignupPageState extends State<VendorSignupPage> {
           case 'bankLetter':
             bankLetterFile = file;
             break;
+          case 'authorizationLetter':
+            authorizationLetterFile = file;
+            break;
+          case 'agreement':
+            agreementFile = file;
+            break;
         }
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -178,6 +188,8 @@ class _VendorSignupPageState extends State<VendorSignupPage> {
               _buildFileUpload("Trade License", tradeLicenseFile?.name, () => pickFile('tradeLicense')),
               _buildFileUpload("VAT Certificate", vatCertificateFile?.name, () => pickFile('vatCertificate')),
               _buildFileUpload("Bank Letter", bankLetterFile?.name, () => pickFile('bankLetter')),
+              _buildFileUpload("Authorization Letter", authorizationLetterFile?.name, () => pickFile('authorizationLetter')),
+              _buildFileUpload("Agreement", agreementFile?.name, () => pickFile('agreement')),
 
               const SizedBox(height: 24),
 
@@ -205,6 +217,8 @@ class _VendorSignupPageState extends State<VendorSignupPage> {
                         String? tradeLicenseUrl = await uploadFileToStorage(tradeLicenseFile, 'trade_licenses');
                         String? vatCertificateUrl = await uploadFileToStorage(vatCertificateFile, 'vat_certificates');
                         String? bankLetterUrl = await uploadFileToStorage(bankLetterFile, 'bank_letters');
+                        String? authorizationLetterUrl = await uploadFileToStorage(authorizationLetterFile, 'authorization_letters');
+                        String? agreementUrl = await uploadFileToStorage(agreementFile, 'agreements');
 
                         // Create vendor data map
                         final vendorData = {
@@ -226,6 +240,8 @@ class _VendorSignupPageState extends State<VendorSignupPage> {
                           'tradeLicenseUrl': tradeLicenseUrl,
                           'vatCertificateUrl': vatCertificateUrl,
                           'bankLetterUrl': bankLetterUrl,
+                          'authorizationLetterUrl': authorizationLetterUrl,
+                          'agreementUrl': agreementUrl,
                           'password': passwordController.text.trim(),
                           'createdAt': Timestamp.now(),
                         };

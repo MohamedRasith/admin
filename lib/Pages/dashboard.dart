@@ -1013,14 +1013,17 @@ class _DashboardPageState extends State<DashboardPage> {
                                                     message: 'Click to copy Purchase Price',
                                                     child: InkWell(
                                                       onTap: () {
+                                                        final value = double.tryParse(product['Purchase Price'].toString()) ?? 0.0;
                                                         Clipboard.setData(
-                                                          ClipboardData(text: 'AED ${product['Purchase Price'] ?? '0.00'}'),
+                                                          ClipboardData(text: 'AED ${value.toStringAsFixed(2)}'),
                                                         );
                                                         ScaffoldMessenger.of(context).showSnackBar(
                                                           const SnackBar(content: Text('Purchase Price copied')),
                                                         );
                                                       },
-                                                      child: Text('AED ${product['Purchase Price'] ?? '0.00'}'),
+                                                      child: Text(
+                                                        'AED ${NumberFormat('##0.00').format(double.tryParse(product['Purchase Price'].toString()) ?? 0.0)}',
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
@@ -1029,14 +1032,17 @@ class _DashboardPageState extends State<DashboardPage> {
                                                     message: 'Click to copy RSP',
                                                     child: InkWell(
                                                       onTap: () {
+                                                        final value = double.tryParse(product['RSP'].toString()) ?? 0.0;
                                                         Clipboard.setData(
-                                                          ClipboardData(text: 'AED ${product['RSP'] ?? '0.00'}'),
+                                                          ClipboardData(text: 'AED ${value.toStringAsFixed(2)}'),
                                                         );
                                                         ScaffoldMessenger.of(context).showSnackBar(
                                                           const SnackBar(content: Text('RSP copied')),
                                                         );
                                                       },
-                                                      child: Text('AED ${product['RSP'] ?? '0.00'}'),
+                                                      child: Text(
+                                                        'AED ${NumberFormat('##0.00').format(double.tryParse(product['RSP'].toString()) ?? 0.0)}',
+                                                      ),
                                                     ),
                                                   ),
                                                 ),

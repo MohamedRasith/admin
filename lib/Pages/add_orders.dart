@@ -56,7 +56,6 @@ class _AddOrderPageState extends State<AddOrderPage> {
   void initState() {
     super.initState();
     fetchVendors();
-    // sendEmailWithBrevo(toEmail: "", toName: "", orderId: "123445");
     productNosController = TextEditingController(text: productNos.toString());
   }
   void fetchAsinSearch(String input) async {
@@ -94,11 +93,11 @@ class _AddOrderPageState extends State<AddOrderPage> {
         },
         "to":[
           {
-            "email":"majfana@gmail.com",
-            "name":"Majeed"
+            "email":"mohammedrasith99@gmail.com",
+            "name":toName
           }
         ],
-        "subject":"Hello world",
+        "subject":"New Purchase Order $orderId",
         "htmlContent": """
 <html>
   <head></head>
@@ -437,7 +436,7 @@ class _AddOrderPageState extends State<AddOrderPage> {
       overlayEntry?.remove();
       overlayEntry = null;
     }
-    if (!_formKey.currentState!.validate() || appointmentDate == null) {
+    if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all required fields")),
       );
@@ -464,10 +463,12 @@ class _AddOrderPageState extends State<AddOrderPage> {
       'status': "Pending Order",
       'products': productDetails,
       'location': selectedLocation,
+      'uploadToAmazon': "",
       'createdAt': FieldValue.serverTimestamp(),
     };
 
     await FirebaseFirestore.instance.collection('orders').add(orderData);
+    sendEmailWithBrevo(toEmail: vendorEmail ?? "", toName: selectedVendor ?? "", orderId: poNumberController.text.trim());
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Order added successfully")),
