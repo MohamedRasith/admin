@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:admin/Pages/raise_query.dart';
 import 'package:admin/Pages/vendor_details_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
@@ -48,13 +49,14 @@ class _DashboardPageState extends State<DashboardPage> {
   String vendorSearchQuery = '';
   List<QueryDocumentSnapshot> filteredVendors = [];
 
-  final List<String> titles = ['Home', 'Orders', 'Products', 'Vendor', 'Amazon Margin'];
+  final List<String> titles = ['Home', 'Orders', 'Products', 'Vendor', 'Amazon Margin', 'Raise a Ticket'];
   final List<IconData> icons = [
     Icons.home,
     Icons.shopping_cart,
     Icons.inventory,
     Icons.store,
-    Icons.margin
+    Icons.margin,
+    Icons.message
   ];
 
   Future<void> openUrlFallback(String url) async {
@@ -1347,6 +1349,8 @@ class _DashboardPageState extends State<DashboardPage> {
         return getVendorsPageContent();
       case 4:
         return AmazonMarginPage();
+      case 5:
+        return CreateTicketWithVendor();
       default:
         return const Center(child: Text("Unknown Page"));
     }
