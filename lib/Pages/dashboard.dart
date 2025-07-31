@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:admin/Pages/raise_query.dart';
+import 'package:admin/Pages/reports_page.dart';
 import 'package:admin/Pages/vendor_details_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
@@ -49,13 +50,14 @@ class _DashboardPageState extends State<DashboardPage> {
   String vendorSearchQuery = '';
   List<QueryDocumentSnapshot> filteredVendors = [];
 
-  final List<String> titles = ['Orders', 'Products', 'Vendor', 'Amazon Margin', 'Raise a Ticket'];
+  final List<String> titles = ['Orders', 'Products', 'Vendor', 'Amazon Margin', 'Raise a Ticket', 'Reports'];
   final List<IconData> icons = [
     Icons.shopping_cart,
     Icons.inventory,
     Icons.store,
     Icons.margin,
-    Icons.message
+    Icons.message,
+    Icons.list_alt
   ];
 
   Future<void> openUrlFallback(String url) async {
@@ -1212,9 +1214,6 @@ class _DashboardPageState extends State<DashboardPage> {
                                   DataColumn(label: Text("Company")),
                                   DataColumn(label: Text("Contact Name")),
                                   DataColumn(label: Text("Contact Email")),
-                                  DataColumn(label: Text("Trade License")),
-                                  DataColumn(label: Text("VAT Certificate")),
-                                  DataColumn(label: Text("Bank Letter")),
                                 ],
                                 rows: filtered.map((doc) {
                                   return DataRow(cells: [
@@ -1272,31 +1271,6 @@ class _DashboardPageState extends State<DashboardPage> {
                                       text: doc['contactPersonEmail'] ?? '',
                                       tooltip: 'Email',
                                     )),
-
-                                    DataCell(
-                                      doc['tradeLicenseUrl'] != null
-                                          ? IconButton(
-                                        icon: const Icon(Icons.picture_as_pdf, size: 20),
-                                        onPressed: () => openUrlFallback(doc['tradeLicenseUrl']),
-                                      )
-                                          : const Text("No File"),
-                                    ),
-                                    DataCell(
-                                      doc['vatCertificateUrl'] != null
-                                          ? IconButton(
-                                        icon: const Icon(Icons.picture_as_pdf, size: 20),
-                                        onPressed: () => openUrlFallback(doc['vatCertificateUrl']),
-                                      )
-                                          : const Text("No File"),
-                                    ),
-                                    DataCell(
-                                      doc['bankLetterUrl'] != null
-                                          ? IconButton(
-                                        icon: const Icon(Icons.picture_as_pdf, size: 20),
-                                        onPressed: () => openUrlFallback(doc['bankLetterUrl']),
-                                      )
-                                          : const Text("No File"),
-                                    ),
                                   ]);
                                 }).toList(),
                               ),
@@ -1327,6 +1301,8 @@ class _DashboardPageState extends State<DashboardPage> {
         return AmazonMarginPage();
       case 4:
         return CreateTicketWithVendor();
+      case 5:
+        return ReportsPage();
       default:
         return const Center(child: Text("Unknown Page"));
     }

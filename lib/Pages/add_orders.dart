@@ -370,11 +370,14 @@ class _AddOrderPageState extends State<AddOrderPage> {
 
   void updateBNBPO() {
     final amazonPO = poNumberController.text.trim();
-    final vendor = selectedVendor ?? "";
+    final vendor = (selectedVendor ?? "").trim();
+
     if (amazonPO.isNotEmpty && vendor.isNotEmpty) {
-      bnbPoNumberController.text = "$amazonPO-$vendor";
+      final vendorPrefix = vendor.length >= 3 ? vendor.substring(0, 3) : vendor;
+      bnbPoNumberController.text = "$amazonPO-$vendorPrefix";
     }
   }
+
 
   Future<void> fetchVendors() async {
     final snapshot = await FirebaseFirestore.instance.collection('products').get();

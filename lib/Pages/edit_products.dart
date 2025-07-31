@@ -67,7 +67,7 @@ class _EditProductPageState extends State<EditProductPage> {
   void initState() {
     super.initState();
     final data = widget.product.data() as Map<String, dynamic>;
-    for (int i = 1; i <= 5; i++) {
+    for (int i = 1; i <= 12; i++) {
       final key = 'Image $i';
       final url = data[key] as String? ?? '';
       imageUrls[key] = url;
@@ -205,7 +205,7 @@ class _EditProductPageState extends State<EditProductPage> {
     };
 
     // Only add changed image URLs
-    for (int i = 1; i <= 5; i++) {
+    for (int i = 1; i <= 12; i++) {
       final key = 'Image $i';
       final currentUrl = imageUrls[key] ?? '';
       final originalUrl = originalImageUrls[key] ?? '';
@@ -266,7 +266,7 @@ class _EditProductPageState extends State<EditProductPage> {
                   spacing: 10,
                   runSpacing: 10,
                   alignment: WrapAlignment.center,
-                  children: List.generate(5, (i) {
+                  children: List.generate(12, (i) {
                     final key = 'Image ${i + 1}';
                     final url = imageUrls[key];
                     final hasImage = url != null && url.isNotEmpty;

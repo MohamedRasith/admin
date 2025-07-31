@@ -18,6 +18,7 @@ class _CreateTicketWithVendorState extends State<CreateTicketWithVendor> {
   bool showForm = false; // Add this at class level
   List<DocumentSnapshot> userTickets = [];
   String? editingTicketId;
+  bool? loadingTickets;
 
   @override
   void initState() {
@@ -42,6 +43,9 @@ class _CreateTicketWithVendorState extends State<CreateTicketWithVendor> {
   }
 
   Future<void> fetchTickets() async {
+    setState(() {
+      loadingTickets = true;
+    });
     final snapshot = await FirebaseFirestore.instance
         .collection('tickets')
         .orderBy('createdAt', descending: true)
@@ -49,6 +53,7 @@ class _CreateTicketWithVendorState extends State<CreateTicketWithVendor> {
 
     setState(() {
       userTickets = snapshot.docs;
+      loadingTickets = false;
     });
   }
 
@@ -179,7 +184,17 @@ class _CreateTicketWithVendorState extends State<CreateTicketWithVendor> {
                   ),
 
                 SizedBox(height: 30),
-                if (userTickets.isEmpty)
+                if(loadingTickets == true)
+                  Column(
+                    children: [
+                      SizedBox(height: 30),
+                      Text("Your Queries", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      SizedBox(height: 10),
+                      CircularProgressIndicator(color: Colors.black,)
+                    ],
+                  )
+
+                else if (userTickets.isEmpty)
                   Column(
                     children: [
                       SizedBox(height: 30),

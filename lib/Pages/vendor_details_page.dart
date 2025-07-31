@@ -89,6 +89,7 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
                         _buildDetailTile("Trade License No.", widget.vendor['tradeLicenseNumber']),
                         _buildDetailTile("VAT No.", widget.vendor['vatNumber']),
                         _buildDetailTile("Address", "${widget.vendor['addressLine1']} | ${widget.vendor['addressLine2']} | ${widget.vendor['city']} | ${widget.vendor['country']}"),
+                        _buildDetailTile("Password", widget.vendor['password']),
                       ],
                     ),
                   ),
@@ -114,6 +115,8 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
                         _buildFileLink(context, "Trade License", widget.vendor['tradeLicenseUrl']),
                         _buildFileLink(context, "VAT Certificate", widget.vendor['vatCertificateUrl']),
                         _buildFileLink(context, "Bank Letter", widget.vendor['bankLetterUrl']),
+                        _buildFileLink(context, "Authorization Letter", widget.vendor['authorizationLetterUrl']),
+                        _buildFileLink(context, "Agreement", widget.vendor['agreementUrl']),
                       ],
                     ),
                   ),
@@ -151,15 +154,15 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
 
   Widget _buildDetailTile(String label, String? value) {
     return ListTile(
-      title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(value ?? '-'),
+      title: SelectableText(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: SelectableText(value ?? '-'),
     );
   }
 
   Widget _buildFileLink(BuildContext context, String label, String? url) {
     return url != null
         ? ListTile(
-      title: Text(label),
+      title: SelectableText(label),
       trailing: const Icon(Icons.picture_as_pdf),
       onTap: () => openUrlFallback(url),
     )
