@@ -186,7 +186,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                 dataRowMinHeight: 50,
                                 dataRowMaxHeight: 60,
                                 columns: const [
-                                  DataColumn(label: Text('Amazon PO')),
+                                  DataColumn(label: Text('BNB PO')),
                                   DataColumn(label: Text('Invoice No')),
                                   DataColumn(label: Text('Status')),
                                   DataColumn(label: Text('Vendor')),
@@ -217,7 +217,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
                                   return DataRow(cells: [
                                     DataCell(CopyableTextCell(
-                                      text: data['amazonPONumber'] ?? '',
+                                      text: data['bnbPONumber'] ?? '',
                                       tooltip: "Copy PO Number",
                                     )),
                                     DataCell(CopyableTextCell(

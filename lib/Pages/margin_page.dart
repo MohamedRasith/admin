@@ -80,7 +80,6 @@ class _AmazonMarginPageState extends State<AmazonMarginPage> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
                     child: ConstrainedBox(
                       constraints: BoxConstraints(minWidth: constraints.maxWidth),
                       child: DataTable(
@@ -95,7 +94,6 @@ class _AmazonMarginPageState extends State<AmazonMarginPage> {
                           DataColumn(label: Text("Front Margin (%)")),
                           DataColumn(label: Text("Back Margin (%)")),
                           DataColumn(label: Text("GMM (%)")),
-                          DataColumn(label: Text("Total Margin (%)")),
                           DataColumn(label: Text("Actions")),
                         ],
                         rows: amazonMargins.map((item) {
@@ -112,7 +110,6 @@ class _AmazonMarginPageState extends State<AmazonMarginPage> {
                               DataCell(Text("${item['frontMargin']}")),
                               DataCell(Text("${item['backMargin']}")),
                               DataCell(Text("${item['gmm']}")),
-                              DataCell(Text("$totalMargin")),
                               DataCell(
                                 IconButton(
                                   icon: const Icon(Icons.delete, color: Colors.red),

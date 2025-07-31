@@ -49,9 +49,8 @@ class _DashboardPageState extends State<DashboardPage> {
   String vendorSearchQuery = '';
   List<QueryDocumentSnapshot> filteredVendors = [];
 
-  final List<String> titles = ['Home', 'Orders', 'Products', 'Vendor', 'Amazon Margin', 'Raise a Ticket'];
+  final List<String> titles = ['Orders', 'Products', 'Vendor', 'Amazon Margin', 'Raise a Ticket'];
   final List<IconData> icons = [
-    Icons.home,
     Icons.shopping_cart,
     Icons.inventory,
     Icons.store,
@@ -1319,37 +1318,14 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget getSelectedPageContent() {
     switch (selectedIndex) {
       case 0:
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Card(
-                color: Colors.white,
-                elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    children: [
-                      Text("Total Products: $productCount", style: const TextStyle(fontSize: 18)),
-                      const SizedBox(height: 10),
-                      Text("Total Vendors: $vendorCount", style: const TextStyle(fontSize: 18)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      case 1:
         return getOrdersPageContent();
-      case 2:
+      case 1:
         return getProductsPageContent();
-      case 3:
+      case 2:
         return getVendorsPageContent();
-      case 4:
+      case 3:
         return AmazonMarginPage();
-      case 5:
+      case 4:
         return CreateTicketWithVendor();
       default:
         return const Center(child: Text("Unknown Page"));
