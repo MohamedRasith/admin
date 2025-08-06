@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:intl/intl.dart';
 
 class ReportsPage extends StatefulWidget {
   const ReportsPage({Key? key}) : super(key: key);
@@ -243,6 +244,9 @@ class _ReportsPageState extends State<ReportsPage> {
                         final type = report['reportType'] ?? '';
                         final amount = report['amount'] ?? '';
                         final url = report['attachment'] ?? '';
+                        final Timestamp timestamp = report['timestamp'];
+                        final DateTime dateTime = timestamp.toDate();
+                        final formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(dateTime);
 
                         return Card(
                           color: Colors.white,
@@ -254,6 +258,7 @@ class _ReportsPageState extends State<ReportsPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('Amount: AED $amount'),
+                                Text('Date & Time: $formattedDate'),
                                 if (url.isNotEmpty)
                                   RawMaterialButton(
                                     onPressed: () {

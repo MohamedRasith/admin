@@ -29,6 +29,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   late List<TextEditingController> titleControllers;
   OverlayEntry? _overlayEntry;
   Map<int, LayerLink> _layerLinks = {};
+  late Map<String, dynamic> orderData;
   int? _activeIndex; // to know which field is focused
   List<String> allProductTitles = [];
   PlatformFile? appointmentFile;
@@ -47,6 +48,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     super.initState();
 
     products = widget.order['products'] ?? [];
+    orderData = Map<String, dynamic>.from(widget.order.data() as Map<String, dynamic>);
 
     for (int i = 0; i < products.length; i++) {
       _layerLinks[i] = LayerLink();
@@ -708,8 +710,8 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(8.0),
-                                child: widget.order['asn'] != null && widget.order['asn'].toString().isNotEmpty
-                                    ? Text(widget.order['asn'])
+                                child: orderData['asn'] != null && orderData['asn'].toString().isNotEmpty
+                                    ? Text(orderData['asn'])
                                     : ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green,
@@ -741,8 +743,14 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                                     );
 
                                     if (asn != null && asn.isNotEmpty) {
-                                      await FirebaseFirestore.instance.collection('orders').doc(widget.order.id).update({'asn': asn});
-                                      setState(() {}); // Refresh UI
+                                      await FirebaseFirestore.instance
+                                          .collection('orders')
+                                          .doc(widget.order.id)
+                                          .update({'asn': asn});
+
+                                      setState(() {
+                                        orderData['asn'] = asn;
+                                      });
                                     }
                                   },
                                 ),
@@ -770,8 +778,8 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(8.0),
-                                child: widget.order['appointmentId'] != null && widget.order['appointmentId'].toString().isNotEmpty
-                                    ? Text(widget.order['appointmentId'])
+                                child: orderData['appointmentId'] != null && orderData['appointmentId'].toString().isNotEmpty
+                                    ? Text(orderData['appointmentId'])
                                     : ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green,
@@ -805,6 +813,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                                     if (id != null && id.isNotEmpty) {
                                       await FirebaseFirestore.instance.collection('orders').doc(widget.order.id).update({'appointmentId': id});
                                       setState(() {
+                                        orderData['appointmentId'] = id;
                                       });
                                     }
                                   },
@@ -1236,7 +1245,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                           Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Text(
-                               '${product['boxCount']}',
+                               '${product['requested']}',
                             ),
                           ),
                           Padding(

@@ -16,7 +16,7 @@ class _ChatPageState extends State<ChatPage> {
   final ScrollController _scrollController = ScrollController();
   bool _isSending = false;
 
-  String _status = 'open';
+  String? _status;
 
   @override
   void initState() {
@@ -97,6 +97,18 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_status == null) {
+      // Wait for status to load
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Chat with ${widget.vendorName}'),
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+        ),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -108,7 +120,7 @@ class _ChatPageState extends State<ChatPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Center(
               child: Text(
-                "Status: ${_status.toUpperCase() == "OPEN"?"Pending":_status}",
+                "Status: ${_status}",
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
             ),
@@ -157,86 +169,66 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
           Divider(height: 1),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            color: Colors.grey[100],
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    textInputAction: TextInputAction.send,
-                    decoration: InputDecoration(
-                      hintText: "Type a message...",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12),
+          if (_status != "closed")
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              color: Colors.grey[100],
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      textInputAction: TextInputAction.send,
+                      decoration: InputDecoration(
+                        hintText: "Type a message...",
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                      onSubmitted: (val) => sendMessage(val, 'user'),
                     ),
-                    onSubmitted: (val) => sendMessage(val, 'user'),
                   ),
-                ),
-                SizedBox(width: 8),
-                _isSending
-                    ? Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                  SizedBox(width: 8),
+                  _isSending
+                      ? Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                      : IconButton(
+                    icon: Icon(Icons.send),
+                    onPressed: () => sendMessage(_messageController.text, 'user'),
                   ),
-                )
-                    : IconButton(
-                  icon: Icon(Icons.send),
-                  onPressed: () => sendMessage(_messageController.text, 'user'),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       ),
-      floatingActionButton: Align(
+      floatingActionButton: _status == "closed"
+          ? null
+          : Align(
         alignment: Alignment.bottomRight,
         child: Container(
           margin: const EdgeInsets.only(right: 16, bottom: 50),
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Colors.black,
+            color: Colors.red,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Theme(
-            data: Theme.of(context).copyWith(
-              popupMenuTheme: PopupMenuThemeData(
-                color: Colors.black,
-                textStyle: TextStyle(color: Colors.white),
-              ),
-            ),
-            child: PopupMenuButton<String>(
-              offset: Offset(0, -100), // show menu upward
-              color: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              onSelected: (value) => updateStatus(value),
-              itemBuilder: (context) => [
-                if (_status != 'on process')
-                  PopupMenuItem(
-                    value: 'on process',
-                    child: Text('Mark as On Process', style: TextStyle(color: Colors.white)),
-                  ),
-                if (_status != 'completed')
-                  PopupMenuItem(
-                    value: 'completed',
-                    child: Text('Mark as Completed', style: TextStyle(color: Colors.white)),
-                  ),
+          child: InkWell(
+            onTap: () => updateStatus('closed'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.close, color: Colors.white),
+                Text(
+                  "Mark as Closed",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 10),
+                ),
               ],
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.settings, color: Colors.white),
-                  Text(
-                    "Click here\nto update status",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white, fontSize: 10),
-                  ),
-                ],
-              ),
             ),
           ),
         ),
