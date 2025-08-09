@@ -1,6 +1,8 @@
 import 'package:admin/Pages/chat_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 class CreateTicketWithVendor extends StatefulWidget {
   @override
@@ -87,6 +89,7 @@ class _CreateTicketWithVendorState extends State<CreateTicketWithVendor> {
       'vendorName': selectedVendorName,
       'createdAt': Timestamp.now(),
       'status': 'open',
+      'createdBy': 'Admin'
     };
 
     if (editingTicketId != null) {
@@ -204,50 +207,190 @@ class _CreateTicketWithVendorState extends State<CreateTicketWithVendor> {
                     ],
                   )
                 else
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: 30),
-                      Text("Your Queries", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      SizedBox(height: 10),
-                      for (var doc in userTickets)
-                        Card(
-                          elevation: 2,
-                          color: Colors.white,
-                          child: ListTile(
-                            title: Text(doc['title']),
-                            subtitle: Text(doc['description']),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: Icon(Icons.edit, color: Colors.blue),
-                                  onPressed: () => populateTicketForEdit(doc),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () => deleteTicket(doc.id),
-                                ),
-                              ],
-                            ),
-                              onTap: () {
-                                Navigator.push(context, MaterialPageRoute(
-                                  builder: (context) => ChatPage(
-                                    ticketId: doc.id,
-                                    vendorName: doc['vendorName'],
-                                  ),
-                                ));
-                              }
+                  DefaultTabController(
+                    length: 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 30),
+                        const Text(
+                          "Your Queries",
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
 
+                        // TabBar
+                        const TabBar(
+                          indicatorColor: Colors.black,
+                          labelColor: Colors.black,
+                          tabs: [
+                            Tab(text: "Open Tickets"),
+                            Tab(text: "Closed Tickets"),
+                          ],
+                        ),
+
+                        // TabBarView
+                        SizedBox(
+                          height: 500, // Adjust height to fit your layout
+                          child: TabBarView(
+                            children: [
+                              // Open tickets
+                              _buildTicketList(
+                                context,
+                                userTickets.where((doc) => doc['status'] == 'open').toList(),
+                              ),
+
+                              // Closed tickets
+                              _buildTicketList(
+                                context,
+                                userTickets.where((doc) => doc['status'] == 'closed').toList(),
+                              ),
+                            ],
                           ),
                         ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  )
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+  Widget _buildTicketList(BuildContext context, List<DocumentSnapshot> tickets) {
+    if (tickets.isEmpty) {
+      return const Center(
+        child: Text(
+          "No tickets found",
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView(
+      children: tickets.map((doc) {
+        return Card(
+          elevation: 2,
+          color: Colors.white,
+          child: ListTile(
+            title: Text(doc['title']),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 10),
+                RichText(
+                  text: TextSpan(
+                    text: 'Ticket ID:\n',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                      fontFamily: GoogleFonts.poppins().fontFamily,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: doc.id,
+                        style: TextStyle(
+                          fontWeight: FontWeight.normal,
+                          fontFamily: GoogleFonts.poppins().fontFamily,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                RichText(
+                  text: TextSpan(
+                    text: 'Description:\n',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                      fontFamily: GoogleFonts.poppins().fontFamily,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: doc['description'] ?? '',
+                        style: TextStyle(
+                          fontWeight: FontWeight.normal,
+                          fontFamily: GoogleFonts.poppins().fontFamily,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                RichText(
+                  text: TextSpan(
+                    text: 'Created at:\n',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                      fontFamily: GoogleFonts.poppins().fontFamily,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: DateFormat('dd MMM yyyy, hh:mm a')
+                            .format(doc['createdAt'].toDate()),
+                        style: TextStyle(
+                          fontWeight: FontWeight.normal,
+                          fontFamily: GoogleFonts.poppins().fontFamily,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                RichText(
+                  text: TextSpan(
+                    text: 'Status:\n',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                      fontFamily: GoogleFonts.poppins().fontFamily,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: "${doc['status']}",
+                        style: TextStyle(
+                          fontWeight: FontWeight.normal,
+                          fontFamily: GoogleFonts.poppins().fontFamily,
+                          color: doc['status'] == "open"
+                              ? Colors.green
+                              : Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.blue),
+                  onPressed: () => populateTicketForEdit(doc),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => deleteTicket(doc.id),
+                ),
+              ],
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChatPage(
+                    ticketId: doc.id,
+                    vendorName: doc['vendorName'],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      }).toList(),
     );
   }
 }

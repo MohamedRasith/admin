@@ -184,7 +184,7 @@ class _ChatPageState extends State<ChatPage> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
                         contentPadding: EdgeInsets.symmetric(horizontal: 12),
                       ),
-                      onSubmitted: (val) => sendMessage(val, 'user'),
+                      onSubmitted: (val) => sendMessage(val, 'admin'),
                     ),
                   ),
                   SizedBox(width: 8),
@@ -199,7 +199,7 @@ class _ChatPageState extends State<ChatPage> {
                   )
                       : IconButton(
                     icon: Icon(Icons.send),
-                    onPressed: () => sendMessage(_messageController.text, 'user'),
+                    onPressed: () => sendMessage(_messageController.text, 'admin'),
                   ),
                 ],
               ),

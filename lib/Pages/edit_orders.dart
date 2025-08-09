@@ -945,8 +945,14 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                                     ),
                                     if (invoiceNo == null || invoiceNo!.isEmpty)
                                       Center(
-                                        child: IconButton(
-                                          icon: const Icon(Icons.add, color: Colors.green),
+                                        child: ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.green,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          ),
+                                          icon: const Icon(Icons.add),
+                                          label: const Text("Add Invoice no"),
                                           onPressed: () async {
                                             final invoiceController = TextEditingController();
 

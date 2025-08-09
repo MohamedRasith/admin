@@ -278,7 +278,7 @@ class _DashboardPageState extends State<DashboardPage> {
       sheet.getRangeByIndex(rowIndex, 5).setText(order['asn'] ?? '');
       sheet.getRangeByIndex(rowIndex, 6).setText(order['bnbInvoiceUrl'] ?? '');
       sheet.getRangeByIndex(rowIndex, 7).setText(order['bnbPONumber'] ?? '');
-      sheet.getRangeByIndex(rowIndex, 8).setText(order['boxCount'] ?? '');
+      sheet.getRangeByIndex(rowIndex, 8).setText(order['boxCount'].toString() ?? '');
       sheet.getRangeByIndex(rowIndex, 9).setText(formatDate(order['createdAt']));
       sheet.getRangeByIndex(rowIndex, 10).setText(order['location'] ?? '');
       sheet.getRangeByIndex(rowIndex, 11).setText(order['productName'] ?? '');
