@@ -155,92 +155,104 @@ class _AmazonMarginPageState extends State<AmazonMarginPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            top: 24,
-            left: 16,
-            right: 16,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text("Add Margin", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedRegion,
-                  decoration: const InputDecoration(
-                    labelText: 'Region',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'UAE', child: Text('UAE')),
-                    DropdownMenuItem(value: 'KSA', child: Text('KSA')),
+        return Stack(
+          children: [
+            Positioned(
+              top: 10,
+                right: 10,
+                child: TextButton(
+                    onPressed: (){
+                      Navigator.pop(context);
+                    },
+                    child: Icon(Icons.close))),
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                top: 24,
+                left: 16,
+                right: 16,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text("Add Margin", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedRegion,
+                      decoration: const InputDecoration(
+                        labelText: 'Region',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'UAE', child: Text('UAE')),
+                        DropdownMenuItem(value: 'KSA', child: Text('KSA')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() {
+                            selectedRegion = value;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      initialValue: defaultPlatform,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Platform',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    buildTextField("Account", accountController),
+                    buildTextField("Vendor Code", vendorCodeController),
+                    buildTextField("Front Margin (%)", frontMarginController, isNumber: true),
+                    buildTextField("Back Margin (%)", backMarginController, isNumber: true),
+                    buildTextField("GMM (%)", gmmController, isNumber: true),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (accountController.text.isEmpty ||
+                            vendorCodeController.text.isEmpty ||
+                            frontMarginController.text.isEmpty ||
+                            backMarginController.text.isEmpty ||
+                            gmmController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("All fields are mandatory")),
+                          );
+                          return;
+                        }
+
+                        final newMargin = {
+                          'region': selectedRegion,
+                          'platform': defaultPlatform,
+                          'account': accountController.text.trim(),
+                          'vendorCode': vendorCodeController.text.trim(),
+                          'frontMargin': int.tryParse(frontMarginController.text) ?? 0,
+                          'backMargin': int.tryParse(backMarginController.text) ?? 0,
+                          'gmm': int.tryParse(gmmController.text) ?? 0,
+                        };
+
+                        await FirebaseFirestore.instance.collection('margins').add(newMargin);
+
+                        Navigator.pop(context);
+                        fetchMargins(); // Refresh list
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text("Add"),
+                    ),
+                    const SizedBox(height: 20),
                   ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        selectedRegion = value;
-                      });
-                    }
-                  },
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  initialValue: defaultPlatform,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Platform',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                buildTextField("Account", accountController),
-                buildTextField("Vendor Code", vendorCodeController),
-                buildTextField("Front Margin (%)", frontMarginController, isNumber: true),
-                buildTextField("Back Margin (%)", backMarginController, isNumber: true),
-                buildTextField("GMM (%)", gmmController, isNumber: true),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (accountController.text.isEmpty ||
-                        vendorCodeController.text.isEmpty ||
-                        frontMarginController.text.isEmpty ||
-                        backMarginController.text.isEmpty ||
-                        gmmController.text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("All fields are mandatory")),
-                      );
-                      return;
-                    }
-
-                    final newMargin = {
-                      'region': selectedRegion,
-                      'platform': defaultPlatform,
-                      'account': accountController.text.trim(),
-                      'vendorCode': vendorCodeController.text.trim(),
-                      'frontMargin': int.tryParse(frontMarginController.text) ?? 0,
-                      'backMargin': int.tryParse(backMarginController.text) ?? 0,
-                      'gmm': int.tryParse(gmmController.text) ?? 0,
-                    };
-
-                    await FirebaseFirestore.instance.collection('margins').add(newMargin);
-
-                    Navigator.pop(context);
-                    fetchMargins(); // Refresh list
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
-                  child: const Text("Add"),
-                ),
-                const SizedBox(height: 20),
-              ],
+              ),
             ),
-          ),
+          ],
         );
       },
     );

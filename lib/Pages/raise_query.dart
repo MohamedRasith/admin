@@ -1,6 +1,7 @@
 import 'package:admin/Pages/chat_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -142,47 +143,83 @@ class _CreateTicketWithVendorState extends State<CreateTicketWithVendor> {
                   ),
                 ),
                 if (showForm)
-                  SizedBox(
-                    width: 400,
-                    child: Column(
-                      children: [
-                        DropdownButtonFormField<String>(
-                          hint: Text("Select Vendor"),
-                          value: selectedVendorId,
-                          items: vendorsList.map((vendor) {
-                            return DropdownMenuItem<String>(
-                              value: vendor['id'],
-                              child: Text(vendor['name'] ?? ''),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              selectedVendorId = value;
-                              selectedVendorName =
-                              vendorsList.firstWhere((v) => v['id'] == value)['name'];
-                            });
-                          },
+                  Padding(
+                    padding: const EdgeInsets.only(top: 18.0),
+                    child: SingleChildScrollView(
+                      child: DataTable(
+                        columnSpacing: 20,
+                        headingRowColor: MaterialStateColor.resolveWith(
+                              (states) => Colors.grey.shade200,
                         ),
-                        SizedBox(height: 16),
-                        TextField(
-                          controller: _titleController,
-                          decoration: InputDecoration(labelText: 'Ticket Title'),
-                        ),
-                        TextField(
-                          controller: _descController,
-                          decoration: InputDecoration(labelText: 'Description'),
-                          maxLines: 3,
-                        ),
-                        SizedBox(height: 20),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                          ),
-                          onPressed: submitTicket,
-                          child: Text(editingTicketId != null ? 'Update Ticket' : 'Submit Ticket'),
-                        ),
-                      ],
+                        columns: const [
+                          DataColumn(label: Text('Vendor', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Title', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Description', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+                        ],
+                        rows: [
+                          DataRow(
+                            cells: [
+                              DataCell(
+                                DropdownButton<String>(
+                                  value: selectedVendorId,
+                                  hint: const Text('Select Vendor'),
+                                  items: vendorsList.map((vendor) {
+                                    return DropdownMenuItem<String>(
+                                      value: vendor['id'],
+                                      child: Text(vendor['name'] ?? ''),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      selectedVendorId = value;
+                                      selectedVendorName = vendorsList.firstWhere((v) => v['id'] == value)['name'];
+                                    });
+                                  },
+                                  isExpanded: true,
+                                ),
+                              ),
+                              DataCell(
+                                SizedBox(
+                                  width: 150,
+                                  child: TextField(
+                                    controller: _titleController,
+                                    decoration: const InputDecoration(
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                SizedBox(
+                                  width: 300,
+                                  child: TextField(
+                                    controller: _descController,
+                                    decoration: const InputDecoration(
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                ElevatedButton(
+                                  onPressed: submitTicket,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.black,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(100, 40),
+                                  ),
+                                  child: Text(editingTicketId != null ? 'Update' : 'Submit'),
+                                ),
+                              ),
+                            ],
+                          )
+                        ],
+                      ),
                     ),
                   ),
 
@@ -230,22 +267,25 @@ class _CreateTicketWithVendorState extends State<CreateTicketWithVendor> {
                         ),
 
                         // TabBarView
-                        SizedBox(
-                          height: 500, // Adjust height to fit your layout
-                          child: TabBarView(
-                            children: [
-                              // Open tickets
-                              _buildTicketList(
-                                context,
-                                userTickets.where((doc) => doc['status'] == 'open').toList(),
-                              ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 18.0),
+                          child: SizedBox(
+                            height: 500, // Adjust height to fit your layout
+                            child: TabBarView(
+                              children: [
+                                // Open tickets
+                                _buildTicketList(
+                                  context,
+                                  userTickets.where((doc) => doc['status'] == 'open').toList(),
+                                ),
 
-                              // Closed tickets
-                              _buildTicketList(
-                                context,
-                                userTickets.where((doc) => doc['status'] == 'closed').toList(),
-                              ),
-                            ],
+                                // Closed tickets
+                                _buildTicketList(
+                                  context,
+                                  userTickets.where((doc) => doc['status'] == 'closed').toList(),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -268,116 +308,89 @@ class _CreateTicketWithVendorState extends State<CreateTicketWithVendor> {
       );
     }
 
-    return ListView(
-      children: tickets.map((doc) {
-        return Card(
-          elevation: 2,
-          color: Colors.white,
-          child: ListTile(
-            title: Text(doc['title']),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 10),
-                RichText(
-                  text: TextSpan(
-                    text: 'Ticket ID:\n',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                      fontFamily: GoogleFonts.poppins().fontFamily,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: doc.id,
-                        style: TextStyle(
-                          fontWeight: FontWeight.normal,
-                          fontFamily: GoogleFonts.poppins().fontFamily,
-                        ),
-                      ),
-                    ],
+    return SingleChildScrollView(
+      child: DataTable(
+        columnSpacing: 20,
+        headingRowColor: MaterialStateColor.resolveWith((states) => Colors.grey.shade200),
+        columns: const [
+          DataColumn(label: Text("Ticket ID", style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text("Title", style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text("Description", style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text("Created At", style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text("Status", style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text("Actions", style: TextStyle(fontWeight: FontWeight.bold))),
+        ],
+        rows: tickets.map((doc) {
+          return DataRow(
+            cells: [
+              DataCell(
+                Text(doc.id),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: doc.id));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Ticket ID copied')),
+                  );
+                },
+              ),
+              DataCell(
+                Text(doc['title'] ?? ''),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: doc['title'] ?? ''));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Title copied')),
+                  );
+                },
+              ),
+              DataCell(
+                Text(doc['description'] ?? ''),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: doc['description'] ?? ''));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Description copied')),
+                  );
+                },
+              ),
+              DataCell(
+                Text(DateFormat('dd MMM yyyy, hh:mm a').format(doc['createdAt'].toDate())),
+                onTap: () {
+                  final dateStr = DateFormat('dd MMM yyyy, hh:mm a')
+                      .format(doc['createdAt'].toDate());
+                  Clipboard.setData(ClipboardData(text: dateStr));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Date & Time copied')),
+                  );
+                },
+              ),
+              DataCell(
+                Text(
+                  "${doc['status']}",
+                  style: TextStyle(
+                    color: doc['status'] == "open" ? Colors.green : Colors.red,
                   ),
                 ),
-                const SizedBox(height: 10),
-                RichText(
-                  text: TextSpan(
-                    text: 'Description:\n',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                      fontFamily: GoogleFonts.poppins().fontFamily,
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: "${doc['status']}"));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Status copied')),
+                  );
+                },
+              ),
+              DataCell(
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blue),
+                      onPressed: () => populateTicketForEdit(doc),
                     ),
-                    children: [
-                      TextSpan(
-                        text: doc['description'] ?? '',
-                        style: TextStyle(
-                          fontWeight: FontWeight.normal,
-                          fontFamily: GoogleFonts.poppins().fontFamily,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                RichText(
-                  text: TextSpan(
-                    text: 'Created at:\n',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                      fontFamily: GoogleFonts.poppins().fontFamily,
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () => deleteTicket(doc.id),
                     ),
-                    children: [
-                      TextSpan(
-                        text: DateFormat('dd MMM yyyy, hh:mm a')
-                            .format(doc['createdAt'].toDate()),
-                        style: TextStyle(
-                          fontWeight: FontWeight.normal,
-                          fontFamily: GoogleFonts.poppins().fontFamily,
-                        ),
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                RichText(
-                  text: TextSpan(
-                    text: 'Status:\n',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                      fontFamily: GoogleFonts.poppins().fontFamily,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: "${doc['status']}",
-                        style: TextStyle(
-                          fontWeight: FontWeight.normal,
-                          fontFamily: GoogleFonts.poppins().fontFamily,
-                          color: doc['status'] == "open"
-                              ? Colors.green
-                              : Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.blue),
-                  onPressed: () => populateTicketForEdit(doc),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => deleteTicket(doc.id),
-                ),
-              ],
-            ),
-            onTap: () {
+              ),
+            ],
+            onSelectChanged: (_) {
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -388,9 +401,9 @@ class _CreateTicketWithVendorState extends State<CreateTicketWithVendor> {
                 ),
               );
             },
-          ),
-        );
-      }).toList(),
+          );
+        }).toList(),
+      ),
     );
   }
 }

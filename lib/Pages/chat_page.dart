@@ -1,5 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ChatPage extends StatefulWidget {
   final String ticketId;
@@ -17,6 +22,25 @@ class _ChatPageState extends State<ChatPage> {
   bool _isSending = false;
 
   String? _status;
+
+  Uint8List? _selectedFileBytes;
+  String? _selectedFileName;
+
+  Future<void> pickDocument() async {
+    final result = await  FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'png'],
+      withData: true, // important for web to get bytes
+    );
+
+    if (result != null && result.files.single.bytes != null) {
+      setState(() {
+        _selectedFileBytes = result.files.single.bytes;
+        _selectedFileName = result.files.single.name;
+        _messageController.text = result.files.single.name;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -61,11 +85,20 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> sendMessage(String messageText, String sender) async {
-    if (messageText.trim().isEmpty) return;
+    if (messageText.trim().isEmpty && _selectedFileBytes == null) return;
 
     setState(() => _isSending = true);
-
+    String? fileUrl;
     try {
+
+      if (_selectedFileBytes != null) {
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('ticket_attachments/${widget.ticketId}/${DateTime.now().millisecondsSinceEpoch}_$_selectedFileName');
+
+        await storageRef.putData(_selectedFileBytes!);
+        fileUrl = await storageRef.getDownloadURL();
+      }
       await FirebaseFirestore.instance
           .collection('tickets')
           .doc(widget.ticketId)
@@ -78,6 +111,8 @@ class _ChatPageState extends State<ChatPage> {
       });
 
       _messageController.clear();
+      _selectedFileBytes = null;
+      _selectedFileName = null;
 
       Future.delayed(Duration(milliseconds: 300), () {
         if (_scrollController.hasClients) {
@@ -155,11 +190,30 @@ class _ChatPageState extends State<ChatPage> {
                           color: isUser ? Colors.blue : Colors.grey[300],
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(
-                          messageText,
-                          style: TextStyle(
-                            color: isUser ? Colors.white : Colors.black,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (msg['message'] != null && msg['message'].isNotEmpty)
+                              Text(msg['message'], style: TextStyle(color: isUser?Colors.white:Colors.black),),
+                            if (msg['fileUrl'] != null && (msg['fileUrl'] as String).isNotEmpty)
+                              InkWell(
+                                onTap: () => launchUrl(Uri.parse(msg['fileUrl'])),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.insert_drive_file, color: Colors.blue),
+                                    SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        msg['fileName'] ?? 'Attachment',
+                                        style: TextStyle(color: Colors.blue),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     );
@@ -175,6 +229,10 @@ class _ChatPageState extends State<ChatPage> {
               color: Colors.grey[100],
               child: Row(
                 children: [
+                  IconButton(
+                    icon: Icon(Icons.attach_file),
+                    onPressed: pickDocument,
+                  ),
                   Expanded(
                     child: TextField(
                       controller: _messageController,
